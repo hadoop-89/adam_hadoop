@@ -1,0 +1,29 @@
+FROM python:3.8-slim
+
+WORKDIR /app
+
+# Install system dependencies required for thriftpy2 compilation and network tools
+RUN apt-get update && \
+    apt-get install -y gcc g++ python3-dev netcat-openbsd && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir happybase dash plotly thriftpy2
+
+COPY src/visualization /app/
+
+ENV HBASE_HOST=hbase
+ENV HBASE_PORT=9090
+ENV DASHBOARD_HOST=0.0.0.0
+ENV DASHBOARD_PORT=8050
+ENV REFRESH_INTERVAL=60
+
+EXPOSE 8050
+
+# Add a script to initialize HBase tables and then start the dashboard
+COPY ./src/visualization/init_hbase.py /app/init_hbase.py
+COPY ./src/visualization/wait-for-hbase.sh /app/wait-for-hbase.sh
+RUN chmod +x /app/wait-for-hbase.sh
+CMD ["/app/wait-for-hbase.sh", "hbase", "9090", "bash", "-c", "python3 -u init_hbase.py && python3 -u dashboard.py"]

@@ -1,0 +1,18 @@
+FROM python:3.8-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/api_interaction /app/
+
+ENV API_BASE_URL=http://ai-api:8000
+ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+ENV KAFKA_TOPIC_PROCESSED_TEXT=processed-data
+ENV KAFKA_TOPIC_PROCESSED_IMAGES=processed-images
+ENV KAFKA_TOPIC_AI_RESULTS=ai-results
+ENV HBASE_HOST=hbase
+ENV HBASE_PORT=9090
+
+CMD ["python", "api_client.py"]
