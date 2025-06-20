@@ -1,98 +1,64 @@
-# Projet Hadoop et IA - Composante Hadoop
+# 🚀 Projet Hadoop - Cluster & Traitement de Données  
 
-## Vue d'ensemble
-Ce projet implémente un écosystème Hadoop complet pour le traitement de grandes bases de données, incluant l'ingestion de données en temps réel, le prétraitement, et l'intégration avec des APIs d'intelligence artificielle.
+## 📌 Description  
+Ce projet met en place un cluster Hadoop sous Docker avec 1 NameNode et 2 DataNodes. Il intègre également un pipeline de chargement de données depuis Kaggle vers HDFS, facilitant ainsi le traitement de données texte et image via Hadoop et Spark.  
 
-## Architecture
-```
-├── Hadoop Cluster (Docker Compose)
-│   ├── NameNode
-│   ├── DataNode(s) - Scalable
-│   └── Hive Metastore
-├── Data Ingestion
-│   ├── Web Scraping (Kafka Producer)
-│   └── Spark Streaming (Kafka Consumer)
-├── Data Preprocessing
-│   ├── Text Cleaning & Tokenization
-│   └── Image Processing
-├── AI API Integration
-└── Monitoring & Visualization
-```
+## 🏗️ Technologies utilisées  
+- **Hadoop 3.2.1** (HDFS)  
+- **Docker & Docker-Compose**  
+- **Ansible** (automatisation)  
+- **Kaggle API** (import de datasets)  
+- **Spark / Hive** (traitement des données)  
 
-## Components
+## 📂 Architecture  
+Le cluster est constitué de trois conteneurs Docker :  
+- 🖥️ **NameNode** : Gestion du système de fichiers distribué  
+- 📦 **DataNode1 & DataNode2** : Stockage et traitement des données  
 
-### 1. Hadoop Cluster
-- Multi-node Hadoop cluster using Docker Compose
-- Scalable DataNode architecture
-- Integrated Hive for data warehousing
+## 🚀 Installation et Démarrage  
 
-### 2. Data Ingestion
-- Real-time web scraping with Kafka
-- Spark Streaming for data processing
-- Automated data pipeline
+### 1️⃣ Prérequis  
+Avant de commencer, assurez-vous d'avoir :  
+- **WSL2 + Ubuntu** installé sous Windows  
+- **Docker Desktop** configuré avec WSL  
+- **Kaggle CLI** installé (`pip install kaggle`)  
 
-### 3. Data Processing
-- Text preprocessing and cleaning
-- Image conversion to byte arrays
-- Data quality validation
+### 2️⃣ Démarrer le cluster Hadoop  
+```bash  
+docker-compose up -d  
+```  
+Cela lance les conteneurs Hadoop en arrière-plan.  
 
-### 4. DevOps
-- CI/CD pipeline with GitHub Actions
-- Ansible automation
-- Docker containerization
-- Monitoring with Prometheus/Grafana
+### 3️⃣ Vérifier l'état du cluster  
+```bash  
+docker ps  
+```  
+Vous devriez voir `namenode`, `datanode1` et `datanode2` en cours d'exécution.  
 
-## Setup Instructions
+### 4️⃣ Charger les bases de données Kaggle  
+Lancer le script d'importation :  
+```bash  
+chmod +x load_db_kaggle.sh  
+./load_db_kaggle.sh  
+```  
+Cela va :  
+✔️ Télécharger les datasets (textes et images) depuis Kaggle  
+✔️ Extraire et stocker les fichiers en local  
+✔️ Copier les données dans HDFS  
 
-### Prerequisites
-- Docker & Docker Compose
-- Python 3.8+
-- Ansible (for automation)
+## 🔍 Accès aux interfaces  
+- **Interface HDFS NameNode** : [localhost:9870](http://localhost:9870)  
+- **Spark UI (si activé)** : [localhost:8080](http://localhost:8080)  
+- **Hive Metastore (si configuré)** : Port 10000  
 
-### Démarrage rapide
-1. Clonez le dépôt: `git clone https://github.com/votre-username/adam_hadoop.git`
-2. Installez les dépendances: `pip install -r requirements.txt`
-3. Lancez le script de démarrage: `bash start.sh`
-4. Vérifiez les services avec les URLs affichées par le script
+## 📌 Prochaines Étapes  
+✔️ Intégration Spark/Hive pour l’analyse des données  
+✔️ Mise en place d’un flux Kafka pour ingestion temps réel  
+✔️ Ajout d’une API Flask pour traitement IA avec YOLO  
 
-### Lancement des services individuels
-- Pour démarrer uniquement le scraping web: `docker-compose up data-ingestion`
-- Pour le traitement Spark: `docker-compose up data-processing`
-- Pour l'interaction avec l'API: `docker-compose up api-interaction`
-- Pour le tableau de bord: `docker-compose up visualization`
-
-### Accès aux services
-- Interface HDFS NameNode: http://localhost:9870
-- Interface Hive: http://localhost:10002
-- Interface Spark Master: http://localhost:8080
-- Grafana: http://localhost:3000
-- Prometheus: http://localhost:9090
-- Tableau de bord: http://localhost:8050
-
-## Project Structure
-```
-├── docker/                 # Docker configurations
-├── ansible/               # Ansible playbooks
-├── src/
-│   ├── ingestion/         # Data ingestion scripts
-│   ├── processing/        # Data processing pipelines
-│   ├── api/              # API integration
-│   └── visualization/    # Data visualization
-├── config/               # Configuration files
-├── scripts/              # Utility scripts
-└── tests/               # Unit tests
-```
-
-## Data Flow
-1. Web scraping → Kafka Topics
-2. Kafka → Spark Streaming → HDFS/Hive
-3. Data preprocessing → Clean datasets
-4. API integration → AI model predictions
-5. Results storage → Analytics database
-6. Visualization → Dashboards
-
-## Monitoring
-- Cluster health monitoring
-- Data pipeline metrics
-- Performance analytics
-- Real-time alerts
+## 🛠️ Développement  
+Clonez le projet et modifiez `docker-compose.yml` ou `load_db_kaggle.sh` pour adapter le cluster et les datasets.  
+```bash  
+git clone https://github.com/votre-repo/projet-hadoop.git  
+cd projet-hadoop  
+```  

@@ -1,0 +1,10 @@
+- hosts: hadoop
+  become: yes
+  tasks:
+    - name: Démarrer les services Docker
+      command: docker-compose up -d
+      args:
+        chdir: /home/squalala/hadoop_cluster
+
+    - name: Vérifier les conteneurs
+      command: docker ps

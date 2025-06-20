@@ -1,241 +1,183 @@
+version: "3.8"
+
 services:
   namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    build:
+      context: ./hadoop-namenode
     container_name: namenode
-    restart: always
+    hostname: namenode
     ports:
-      - 9870:9870
-      - 9000:9000
+      - "9870:9870"   # Web UI HDFS
+      - "9000:9000"   # RPC Hadoop
+      - "2222:22"     # SSH
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
-    environment:
-      - CLUSTER_NAME=hadoop-cluster
-    env_file:
-      - ./hadoop.env
     networks:
-      - hadoop_network
+      - hadoop-net
+    restart: always
 
   datanode1:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    build:
+      context: ./hadoop-datanode
     container_name: datanode1
-    restart: always
+    hostname: datanode1
+    ports:
+      - "9864:9864"   # Web UI DataNode
+      - "2223:22"     # SSH
     volumes:
       - hadoop_datanode1:/hadoop/dfs/data
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870"
-    env_file:
-      - ./hadoop.env
     networks:
-      - hadoop_network
-
-  datanode2:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    container_name: datanode2
-    restart: always
-    volumes:
-      - hadoop_datanode2:/hadoop/dfs/data
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870"
-    env_file:
-      - ./hadoop.env
-    networks:
-      - hadoop_network
-
-  hive-server:
-    image: bde2020/hive:2.3.2-postgresql-metastore
-    container_name: hive-server
+      - hadoop-net
     depends_on:
       - namenode
-      - datanode1
-      - hive-metastore
-    env_file:
-      - ./hadoop.env
-    environment:
-      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
-      SERVICE_PRECONDITION: "hive-metastore:9083"
-    ports:
-      - "10000:10000"
-      - "10002:10002"
-    networks:
-      - hadoop_network
-
-  hive-metastore:
-    image: bde2020/hive:2.3.2-postgresql-metastore
-    container_name: hive-metastore
-    env_file:
-      - ./hadoop.env
-    command: /opt/hive/bin/hive --service metastore
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870 datanode1:9864"
-    ports:
-      - "9083:9083"
-    networks:
-      - hadoop_network
-      
-  hive-metastore-postgresql:
-    image: bde2020/hive-metastore-postgresql:2.3.0
-    container_name: hive-metastore-postgresql
-    volumes:
-      - hive-metastore-postgresql:/var/lib/postgresql/data
-    networks:
-      - hadoop_network
-
-  hbase:
-    image: bde2020/hbase-standalone:1.0.0-hbase1.2.6
-    container_name: hbase
     restart: always
-    ports:
-      - "16010:16010"
-      - "9091:9090"
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870 datanode1:9864 zookeeper:2181"
-      HBASE_CONF_hbase_regionserver_thrift_server: "true"
-      HBASE_CONF_hbase_regionserver_thrift_port: "9090"
-      HBASE_CONF_hbase_thrift_support_proxyuser: "true"
-    networks:
-      - hadoop_network
 
-  zookeeper:
-    image: bitnami/zookeeper:3.8
-    container_name: zookeeper
+  datanode2:
+    build:
+      context: ./hadoop-datanode
+    container_name: datanode2
+    hostname: datanode2
     ports:
-      - "2181:2181"
-    environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
+      - "9865:9864"
+      - "2224:22"
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
     networks:
-      - hadoop_network
-      
+      - hadoop-net
+    depends_on:
+      - namenode
+    restart: always
+
+  yolo-api:
+    build:
+      context: ./yolo-api
+    container_name: yolo-api
+    hostname: yolo-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./datasets/images:/app/images
+    networks:
+      - hadoop-net
+    depends_on:
+      - namenode
+  
+  data-loader:
+    build:
+      context: ./data-loader
+    container_name: data-loader
+    hostname: data-loader
+    networks:
+      - hadoop-net
+    depends_on:
+      - namenode
+    restart: "no"
+
+  hbase-master:
+    image: harisekhon/hbase
+    container_name: hbase-master
+    hostname: hbase-master
+    ports:
+      - "16010:16010"  # Web UI HBase Master
+    environment:
+      - HBASE_MANAGES_ZK=true
+    networks:
+      - hadoop-net
+    depends_on:
+      - namenode
+
+  # --- NOUVEAUX SERVICES POUR LE STREAMING ---
+  
+  # Services Kafka/Zookeeper pour le streaming
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - hadoop-net
+
   kafka:
-    image: bitnami/kafka:3.4
+    image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
+    depends_on:
+      - zookeeper
     ports:
       - "9092:9092"
     environment:
-      - KAFKA_BROKER_ID=1
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
-    depends_on:
-      - zookeeper
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
-      - hadoop_network
+      - hadoop-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   spark-master:
-    image: bde2020/spark-master:3.0.0-hadoop3.2
+    image: bitnami/spark:3.5
     container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
     ports:
       - "8080:8080"
       - "7077:7077"
-    environment:
-      - INIT_DAEMON_STEP=setup_spark
+    volumes:
+      - ./spark-jobs:/opt/spark-jobs
     networks:
-      - hadoop_network
+      - hadoop-net
 
-  spark-worker-1:
-    image: bde2020/spark-worker:3.0.0-hadoop3.2
-    container_name: spark-worker-1
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
     depends_on:
       - spark-master
+    networks:
+      - hadoop-net
+
+  scraper:
+    build:
+      context: ./scraper
+    container_name: scraper
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - hadoop-net
+    restart: unless-stopped
+    
+  # Dashboard Streamlit
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: dashboard
+    ports:
+      - "8501:8501"
     environment:
-      - "SPARK_MASTER=spark://spark-master:7077"
-    networks:
-      - hadoop_network
-  grafana:
-    image: grafana/grafana:9.5.2
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-storage:/var/lib/grafana
-    networks:
-      - hadoop_network
-
-  prometheus:
-    image: prom/prometheus:v2.44.0
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
-    networks:
-      - hadoop_network
-
-  data-ingestion:
-    build:
-      context: .
-      dockerfile: Dockerfile.ingestion
-    container_name: data-ingestion
+      - SPARK_MASTER=spark://spark-master:7077
     depends_on:
-      - kafka
-    volumes:
-      - ./src/data_ingestion:/app
-    networks:
-      - hadoop_network
-
-  data-processing:
-    build:
-      context: .
-      dockerfile: Dockerfile.processing
-    container_name: data-processing
-    depends_on:
-      - kafka
       - namenode
       - spark-master
-    volumes:
-      - ./src/data_processing:/app
     networks:
-      - hadoop_network
-  # api-interaction service désactivé car l'API IA n'est pas encore disponible  # api-interaction:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.api
-  #   container_name: api-interaction
-  #   depends_on:
-  #     - kafka
-  #   volumes:
-  #     - ./src/api_interaction:/app
-  #   environment:
-  #     - API_BASE_URL=http://ai-api:8000
-  #   networks:
-  #     - hadoop_network
-      
-  visualization:
-    build:
-      context: .
-      dockerfile: Dockerfile.visualization
-    container_name: visualization
-    depends_on:
-      - hive-server
-      - hbase
-      - zookeeper
-    ports:
-      - "8050:8050"
-    volumes:
-      - ./src/visualization:/app
-    environment:
-      HBASE_HOST: hbase
-      HBASE_PORT: 9090
-    command: ["/bin/bash", "/app/wait-for-hbase.sh"]
-    networks:
-      - hadoop_network
-
-networks:
-  hadoop_network:
-    driver: bridge
+      - hadoop-net
+    restart: unless-stopped
 
 volumes:
   hadoop_namenode:
   hadoop_datanode1:
   hadoop_datanode2:
-  hive-metastore-postgresql:
-  grafana-storage:
-  prometheus-data:
+
+networks:
+  hadoop-net:
+    driver: bridge
