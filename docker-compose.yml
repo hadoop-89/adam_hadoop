@@ -1,15 +1,13 @@
-version: "3.8"
-
 services:
+  # === HADOOP CLUSTER ===
   namenode:
     build:
       context: ./hadoop-namenode
     container_name: namenode
     hostname: namenode
     ports:
-      - "9870:9870"   # Web UI HDFS
-      - "9000:9000"   # RPC Hadoop
-      - "2222:22"     # SSH
+      - "9870:9870"
+      - "9000:9000"
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
     networks:
@@ -22,8 +20,7 @@ services:
     container_name: datanode1
     hostname: datanode1
     ports:
-      - "9864:9864"   # Web UI DataNode
-      - "2223:22"     # SSH
+      - "9864:9864"
     volumes:
       - hadoop_datanode1:/hadoop/dfs/data
     networks:
@@ -39,7 +36,6 @@ services:
     hostname: datanode2
     ports:
       - "9865:9864"
-      - "2224:22"
     volumes:
       - hadoop_datanode2:/hadoop/dfs/data
     networks:
@@ -48,47 +44,7 @@ services:
       - namenode
     restart: always
 
-  yolo-api:
-    build:
-      context: ./yolo-api
-    container_name: yolo-api
-    hostname: yolo-api
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./datasets/images:/app/images
-    networks:
-      - hadoop-net
-    depends_on:
-      - namenode
-  
-  data-loader:
-    build:
-      context: ./data-loader
-    container_name: data-loader
-    hostname: data-loader
-    networks:
-      - hadoop-net
-    depends_on:
-      - namenode
-    restart: "no"
-
-  hbase-master:
-    image: harisekhon/hbase
-    container_name: hbase-master
-    hostname: hbase-master
-    ports:
-      - "16010:16010"  # Web UI HBase Master
-    environment:
-      - HBASE_MANAGES_ZK=true
-    networks:
-      - hadoop-net
-    depends_on:
-      - namenode
-
-  # --- NOUVEAUX SERVICES POUR LE STREAMING ---
-  
-  # Services Kafka/Zookeeper pour le streaming
+  # === STREAMING ===
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -97,6 +53,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       - hadoop-net
+    restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -110,21 +67,21 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
       - hadoop-net
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+    restart: unless-stopped
 
+  # === SPARK ===
   spark-master:
     image: bitnami/spark:3.5
     container_name: spark-master
+    hostname: spark-master
     environment:
       - SPARK_MODE=master
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_USER=spark
     ports:
       - "8080:8080"
       - "7077:7077"
@@ -132,6 +89,7 @@ services:
       - ./spark-jobs:/opt/spark-jobs
     networks:
       - hadoop-net
+    restart: unless-stopped
 
   spark-worker:
     image: bitnami/spark:3.5
@@ -141,23 +99,44 @@ services:
       - SPARK_MASTER_URL=spark://spark-master:7077
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_USER=spark
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
     depends_on:
       - spark-master
     networks:
       - hadoop-net
+    restart: unless-stopped
 
+  # === SCRAPER ===
   scraper:
     build:
       context: ./scraper
     container_name: scraper
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
     networks:
       - hadoop-net
     restart: unless-stopped
-    
-  # Dashboard Streamlit
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SCRAPE_INTERVAL=300
+
+  # === APIs ===
+  yolo-api:
+    build:
+      context: ./yolo-api
+    container_name: yolo-api
+    hostname: yolo-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./datasets/images:/app/images
+    networks:
+      - hadoop-net
+    restart: unless-stopped
+
+  # === MONITORING ===
   dashboard:
     build:
       context: ./dashboard
@@ -166,12 +145,24 @@ services:
       - "8501:8501"
     environment:
       - SPARK_MASTER=spark://spark-master:7077
+      - HDFS_NAMENODE=hdfs://namenode:9000
     depends_on:
-      - namenode
       - spark-master
     networks:
       - hadoop-net
     restart: unless-stopped
+
+  # === DATA LOADER (optionnel) ===
+  data-loader:
+    build:
+      context: ./data-loader
+    container_name: data-loader
+    hostname: data-loader
+    networks:
+      - hadoop-net
+    restart: "no"
+    environment:
+      - HDFS_NAMENODE=namenode:9000
 
 volumes:
   hadoop_namenode:

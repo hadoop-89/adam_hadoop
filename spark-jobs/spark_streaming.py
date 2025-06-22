@@ -1,7 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
-import json
 
 # Créer la session Spark
 spark = SparkSession.builder \
@@ -9,7 +8,15 @@ spark = SparkSession.builder \
     .config("spark.sql.adaptive.enabled", "false") \
     .getOrCreate()
 
-# Schéma des données
+print("✅ Spark session créée avec succès!")
+
+# Test simple : créer des données de test
+data = [
+    ("1", "Breaking: New AI Technology Revolutionizes Healthcare", "https://example.com/1", "2025-06-22T18:46:00", "hackernews"),
+    ("2", "Python 3.12 Released with Amazing Features!", "https://example.com/2", "2025-06-22T18:47:00", "hackernews"),
+    ("3", "Docker Containers vs Virtual Machines: Performance Comparison", "https://example.com/3", "2025-06-22T18:48:00", "hackernews")
+]
+
 schema = StructType([
     StructField("id", StringType()),
     StructField("title", StringType()),
@@ -18,43 +25,37 @@ schema = StructType([
     StructField("source", StringType())
 ])
 
-# Lire depuis Kafka
-df = spark \
-    .readStream \
-    .format("kafka") \
-    .option("kafka.bootstrap.servers", "kafka:9092") \
-    .option("subscribe", "news-topic") \
-    .option("startingOffsets", "latest") \
-    .load()
+# Créer un DataFrame de test
+df = spark.createDataFrame(data, schema)
 
-# Parser les données JSON
-parsed_df = df.select(
-    from_json(col("value").cast("string"), schema).alias("data")
-).select("data.*")
+print("📄 Données de test créées:")
+df.show(truncate=False)
 
 # Prétraitement simple
-processed_df = parsed_df \
+processed_df = df \
     .withColumn("title_length", length(col("title"))) \
     .withColumn("word_count", size(split(col("title"), " "))) \
+    .withColumn("title_cleaned", 
+        regexp_replace(
+            regexp_replace(col("title"), "http\\S+", ""),  # Enlever URLs
+            "[^a-zA-Z0-9\\s]", " "  # Enlever caractères spéciaux
+        )
+    ) \
+    .withColumn("title_cleaned", regexp_replace(col("title_cleaned"), "\\s+", " ")) \
     .withColumn("processed_time", current_timestamp())
 
-# Sauvegarder dans HDFS
-query = processed_df \
-    .writeStream \
-    .outputMode("append") \
-    .format("parquet") \
-    .option("path", "hdfs://namenode:9000/data/streaming/news") \
-    .option("checkpointLocation", "hdfs://namenode:9000/checkpoints/news") \
-    .trigger(processingTime='30 seconds') \
-    .start()
+print("🔧 Données après prétraitement:")
+processed_df.show(truncate=False)
 
-# Afficher en console pour debug
-console_query = processed_df \
-    .writeStream \
-    .outputMode("append") \
-    .format("console") \
-    .trigger(processingTime='10 seconds') \
-    .start()
+# Test sauvegarde HDFS
+try:
+    processed_df.write \
+        .mode("overwrite") \
+        .parquet("hdfs://namenode:9000/data/test/news_sample")
+    print("✅ Sauvegarde HDFS réussie!")
+except Exception as e:
+    print(f"❌ Erreur HDFS: {e}")
 
-# Attendre la fin
-query.awaitTermination()
+# Arrêter Spark
+spark.stop()
+print("🛑 Test terminé")
