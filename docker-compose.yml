@@ -122,20 +122,6 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - SCRAPE_INTERVAL=300
 
-  # === APIs ===
-  yolo-api:
-    build:
-      context: ./yolo-api
-    container_name: yolo-api
-    hostname: yolo-api
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./datasets/images:/app/images
-    networks:
-      - hadoop-net
-    restart: unless-stopped
-
   # === MONITORING ===
   dashboard:
     build:
@@ -163,6 +149,29 @@ services:
     restart: "no"
     environment:
       - HDFS_NAMENODE=namenode:9000
+
+  # === INTEGRATION API IA ===
+  ai-api:
+    image: psychic-pancake-ai-api:latest
+    container_name: hadoop-ai-api
+    ports:
+      - "8001:8001"
+    networks:
+      - hadoop-net
+    environment:
+      - YOLO_API_URL=http://yolo-api:8000
+    restart: unless-stopped
+
+  # === API YOLO (version qui marche) ===
+  yolo-api:
+    image: psychic-pancake-yolo-api:latest
+    container_name: hadoop-yolo-api
+    hostname: yolo-api
+    ports:
+      - "8000:8000"
+    networks:
+      - hadoop-net
+    restart: unless-stopped
 
 volumes:
   hadoop_namenode:

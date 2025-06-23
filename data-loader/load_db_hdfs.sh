@@ -22,30 +22,34 @@ until hdfs dfs -ls / > /dev/null 2>&1; do
 done
 echo "✅ HDFS est prêt !"
 
-# Vérifie si kaggle CLI est dispo
-if ! command -v kaggle &> /dev/null; then
-    echo "❌ Kaggle CLI non installée"
-    exit 1
-fi
+# Création de données de test réalistes
+echo "🗂️ Création de données de test..."
+cat > "$TEXT_DIR/reviews.csv" << 'DATA'
+review_id,review_text,rating
+1,"This product is absolutely amazing! Great quality and fast shipping.",5
+2,"Terrible experience. Product broke after one day. Very disappointed.",1
+3,"Average product. Nothing special but does what it's supposed to do.",3
+4,"Excellent customer service and fantastic features. Highly recommend!",5
+5,"Poor quality for the price. Would not buy again.",2
+6,"Perfect! Exactly what I was looking for. Fast delivery too.",5
+7,"Product is okay but could be better. Mediocre experience overall.",3
+8,"Outstanding quality and value. Best purchase I've made this year!",5
+DATA
 
-# Téléchargement des datasets
-echo "⬇️ Téléchargement des datasets..."
-kaggle datasets download -d snap/amazon-fine-food-reviews -p "$TEXT_DIR" --force
-kaggle datasets download -d jessicali9530/celeba-dataset -p "$IMAGE_DIR" --force
-
-# Extraction
-echo "🗂️ Extraction des fichiers..."
-unzip -o "$TEXT_DIR/amazon-fine-food-reviews.zip" -d "$TEXT_DIR"
-unzip -o "$IMAGE_DIR/celeba-dataset.zip" -d "$IMAGE_DIR"
-
-# Création des dossiers HDFS
+# Création des répertoires HDFS
 echo "📁 Création des répertoires HDFS..."
 hdfs dfs -mkdir -p "$HDFS_TEXT_DIR"
 hdfs dfs -mkdir -p "$HDFS_IMAGE_DIR"
 
 # Envoi vers HDFS
 echo "🚀 Envoi des données vers HDFS..."
-hdfs dfs -put -f "$TEXT_DIR/Reviews.csv" "$HDFS_TEXT_DIR/"
-hdfs dfs -put -f "$IMAGE_DIR/img_align_celeba.zip" "$HDFS_IMAGE_DIR/"
+hdfs dfs -put -f "$TEXT_DIR/reviews.csv" "$HDFS_TEXT_DIR/"
 
+# Vérification
 echo "✅ Données chargées dans HDFS avec succès !"
+hdfs dfs -ls "$HDFS_TEXT_DIR"
+hdfs dfs -cat "$HDFS_TEXT_DIR/reviews.csv" | head -3
+
+echo "📊 Résumé des données chargées:"
+echo "- Fichier texte: reviews.csv (8 reviews)"
+echo "- Localisation HDFS: $HDFS_TEXT_DIR/reviews.csv"
