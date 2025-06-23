@@ -5,7 +5,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt install -y \
     openjdk-8-jdk \
     openssh-server \
-    wget
+    wget \
+    curl \
+    netcat
 
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV HADOOP_VERSION=3.3.6
@@ -19,10 +21,11 @@ RUN wget https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/had
 
 RUN mkdir -p /hadoop/dfs/data
 
+# Copier les fichiers de configuration
 COPY core-site.xml $HADOOP_HOME/etc/hadoop/core-site.xml
 COPY hdfs-site.xml $HADOOP_HOME/etc/hadoop/hdfs-site.xml
 
 EXPOSE 9864
 
-# Commande simple
-CMD ["hdfs", "datanode"]
+# Commande simple : attendre puis démarrer
+CMD ["sh", "-c", "echo 'Attente du NameNode...' && sleep 30 && echo 'Démarrage du DataNode...' && hdfs datanode"]

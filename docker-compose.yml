@@ -77,11 +77,14 @@ services:
     image: bitnami/spark:3.5
     container_name: spark-master
     hostname: spark-master
+    user: root
     environment:
       - SPARK_MODE=master
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_USER=spark
+      - SPARK_USER=root
+      - HOME=/root
+      - USER=root
     ports:
       - "8080:8080"
       - "7077:7077"
@@ -90,23 +93,38 @@ services:
     networks:
       - hadoop-net
     restart: unless-stopped
+    command: >
+      bash -c "
+        pip install requests &&
+        mkdir -p /root/.ivy2 &&
+        /opt/bitnami/scripts/spark/entrypoint.sh /opt/bitnami/scripts/spark/run.sh
+      "
 
   spark-worker:
     image: bitnami/spark:3.5
     container_name: spark-worker
+    user: root
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_USER=spark
+      - SPARK_USER=root
       - SPARK_WORKER_MEMORY=2G
       - SPARK_WORKER_CORES=2
+      - HOME=/root
+      - USER=root
     depends_on:
       - spark-master
     networks:
       - hadoop-net
     restart: unless-stopped
+    command: >
+      bash -c "
+        pip install requests &&
+        mkdir -p /root/.ivy2 &&
+        /opt/bitnami/scripts/spark/entrypoint.sh /opt/bitnami/scripts/spark/run.sh
+      "
 
   # === SCRAPER ===
   scraper:
@@ -150,28 +168,30 @@ services:
     environment:
       - HDFS_NAMENODE=namenode:9000
 
+  # === SUPPRIMEZ OU COMMENTEZ CES SECTIONS ===
+
   # === INTEGRATION API IA ===
-  ai-api:
-    image: psychic-pancake-ai-api:latest
-    container_name: hadoop-ai-api
-    ports:
-      - "8001:8001"
-    networks:
-      - hadoop-net
-    environment:
-      - YOLO_API_URL=http://yolo-api:8000
-    restart: unless-stopped
+  # ai-api:
+  #   image: psychic-pancake-ai-api:latest
+  #   container_name: hadoop-ai-api
+  #   ports:
+  #     - "8001:8001"
+  #   networks:
+  #     - hadoop-net
+  #   environment:
+  #     - YOLO_API_URL=http://yolo-api:8000
+  #   restart: unless-stopped
 
   # === API YOLO (version qui marche) ===
-  yolo-api:
-    image: psychic-pancake-yolo-api:latest
-    container_name: hadoop-yolo-api
-    hostname: yolo-api
-    ports:
-      - "8000:8000"
-    networks:
-      - hadoop-net
-    restart: unless-stopped
+  # yolo-api:
+  #   image: psychic-pancake-yolo-api:latest
+  #   container_name: hadoop-yolo-api
+  #   hostname: yolo-api
+  #   ports:
+  #     - "8000:8000"
+  #   networks:
+  #     - hadoop-net
+  #   restart: unless-stopped
 
 volumes:
   hadoop_namenode:
