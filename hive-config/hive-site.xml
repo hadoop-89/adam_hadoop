@@ -38,15 +38,15 @@
     </property>
     <property>
         <n>datanucleus.autoCreateSchema</n>
-        <value>true</value>
-    </property>
-    <property>
-        <n>datanucleus.fixedDatastore</n>
         <value>false</value>
     </property>
     <property>
-        <n>datanucleus.autoCreateTables</n>
+        <n>datanucleus.fixedDatastore</n>
         <value>true</value>
+    </property>
+    <property>
+        <n>datanucleus.autoCreateTables</n>
+        <value>false</value>
     </property>
     <property>
         <n>hive.metastore.schema.verification</n>
