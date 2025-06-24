@@ -205,6 +205,15 @@ test_hdfs() {
     fi
 }
 
+run_data_loader() {
+    echo -e "\n${YELLOW}⬇️ Loading datasets into HDFS...${NC}"
+    if [[ -f "$HOME/.kaggle/kaggle.json" ]]; then
+        docker-compose run --rm -v "$HOME/.kaggle":/root/.kaggle data-loader
+    else
+        docker-compose run --rm -e KAGGLE_USERNAME -e KAGGLE_KEY data-loader
+    fi
+}
+
 fix_hive() {
     echo -e "\n${YELLOW}🔧 Fixing Hive configuration...${NC}"
     
@@ -269,6 +278,9 @@ deploy_cluster() {
     
     # Test HDFS
     test_hdfs || echo -e "${YELLOW}⚠️ HDFS might need more time${NC}"
+
+    # Charger les données pour créer la structure HDFS
+    run_data_loader || echo -e "${YELLOW}⚠️ Data loader failed${NC}"
     
     return 0
 }

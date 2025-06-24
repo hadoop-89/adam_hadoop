@@ -25,11 +25,12 @@ Avant de commencer, assurez-vous d'avoir :
 - Des identifiants Kaggle disponibles via un fichier `~/.kaggle/kaggle.json` ou
   les variables d'environnement `KAGGLE_USERNAME` et `KAGGLE_KEY`
 
-### 2️⃣ Démarrer le cluster Hadoop  
-```bash  
-docker-compose up -d  
-```  
-Cela lance les conteneurs Hadoop en arrière-plan.  
+### 2️⃣ Démarrer le cluster Hadoop
+Lancez le script suivant qui démarre l'ensemble des conteneurs et initialise HDFS :
+```bash
+./scripts/deploy.sh
+```
+Le script peut être relancé avec `--clean` pour redémarrer proprement le cluster.
 
 ### 3️⃣ Vérifier l'état du cluster  
 ```bash  
@@ -38,17 +39,15 @@ docker ps
 Vous devriez voir `namenode`, `datanode1` et `datanode2` en cours d'exécution.  
 
 ### 4️⃣ Charger les bases de données Kaggle
-Assurez-vous que vos identifiants Kaggle sont disponibles (fichier `kaggle.json`
-monté dans le conteneur ou variables `KAGGLE_USERNAME` et `KAGGLE_KEY`).
-Lancer ensuite le script d'importation :
-```bash  
-chmod +x load_db_kaggle.sh  
-./load_db_kaggle.sh  
-```  
-Cela va :  
-✔️ Télécharger les datasets (textes et images) depuis Kaggle  
-✔️ Extraire et stocker les fichiers en local  
-✔️ Copier les données dans HDFS  
+Le script `deploy.sh` exécute automatiquement le conteneur `data-loader` pour
+importer les jeux de données si vos identifiants Kaggle sont fournis (fichier
+`~/.kaggle/kaggle.json` monté ou variables `KAGGLE_USERNAME` et `KAGGLE_KEY`).
+
+Pour relancer manuellement l'import :
+```bash
+docker-compose run --rm -v ~/.kaggle:/root/.kaggle \
+    -e KAGGLE_USERNAME -e KAGGLE_KEY data-loader
+```
 
 ## 🔍 Accès aux interfaces  
 - **Interface HDFS NameNode** : [localhost:9870](http://localhost:9870)  
@@ -61,7 +60,7 @@ Cela va :
 ✔️ Ajout d’une API Flask pour traitement IA avec YOLO  
 
 ## 🛠️ Développement  
-Clonez le projet et modifiez `docker-compose.yml` ou `load_db_kaggle.sh` pour adapter le cluster et les datasets.  
+Clonez le projet et modifiez `docker-compose.yml` ou `data-loader/load_db_hdfs.sh` pour adapter le cluster et les datasets.
 ```bash  
 git clone https://github.com/votre-repo/projet-hadoop.git  
 cd projet-hadoop  
