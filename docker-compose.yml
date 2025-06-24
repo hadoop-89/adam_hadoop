@@ -168,6 +168,55 @@ services:
     environment:
       - HDFS_NAMENODE=namenode:9000
 
+  # === HIVE SERVICES ===
+  hive-postgres:
+    image: postgres:13
+    container_name: hive-postgres
+    environment:
+      - POSTGRES_DB=metastore
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hive
+    volumes:
+      - hive_postgres:/var/lib/postgresql/data
+    networks:
+      - hadoop-net
+    restart: unless-stopped
+
+  hive-metastore:
+    image: apache/hive:3.1.3
+    container_name: hive-metastore
+    hostname: hive-metastore
+    environment:
+      - SERVICE_NAME=metastore
+      - DB_DRIVER=postgres
+    volumes:
+      - ./hive-config/hive-site-postgres.xml:/opt/hive/conf/hive-site.xml:ro
+    ports:
+      - "9083:9083"
+    depends_on:
+      - hive-postgres
+      - namenode
+    networks:
+      - hadoop-net
+    restart: unless-stopped
+
+  hive-server:
+    image: apache/hive:3.1.3
+    container_name: hive-server
+    hostname: hive-server
+    environment:
+      - SERVICE_NAME=hiveserver2
+    volumes:
+      - ./hive-config/hive-site-postgres.xml:/opt/hive/conf/hive-site.xml:ro
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    depends_on:
+      - hive-metastore
+    networks:
+      - hadoop-net
+    restart: unless-stopped
+
   # === SUPPRIMEZ OU COMMENTEZ CES SECTIONS ===
 
   # === INTEGRATION API IA ===
@@ -197,6 +246,7 @@ volumes:
   hadoop_namenode:
   hadoop_datanode1:
   hadoop_datanode2:
+  hive_postgres:
 
 networks:
   hadoop-net:
