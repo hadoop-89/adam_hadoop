@@ -1,55 +1,55 @@
 <?xml version="1.0"?>
 <configuration>
     <property>
-        <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:derby:/opt/hive/data/metastore_db;create=true</value>
+        <n>javax.jdo.option.ConnectionURL</n>
+        <value>jdbc:derby:/tmp/hive_metastore/metastore_db;create=true</value>
     </property>
     <property>
-        <name>javax.jdo.option.ConnectionDriverName</name>
+        <n>javax.jdo.option.ConnectionDriverName</n>
         <value>org.apache.derby.jdbc.EmbeddedDriver</value>
     </property>
     <property>
-        <name>javax.jdo.option.ConnectionUserName</name>
+        <n>javax.jdo.option.ConnectionUserName</n>
         <value>hive</value>
     </property>
     <property>
-        <name>javax.jdo.option.ConnectionPassword</name>
+        <n>javax.jdo.option.ConnectionPassword</n>
         <value>hive</value>
     </property>
     <property>
-        <name>hive.metastore.warehouse.dir</name>
+        <n>hive.metastore.warehouse.dir</n>
         <value>hdfs://namenode:9000/user/hive/warehouse</value>
     </property>
     <property>
-        <name>hive.metastore.uris</name>
+        <n>hive.metastore.uris</n>
         <value>thrift://hive-metastore:9083</value>
     </property>
     <property>
-        <name>hive.server2.thrift.port</name>
+        <n>hive.server2.thrift.port</n>
         <value>10000</value>
     </property>
     <property>
-        <name>hive.server2.thrift.bind.host</name>
+        <n>hive.server2.thrift.bind.host</n>
         <value>0.0.0.0</value>
     </property>
     <property>
-        <name>hive.server2.authentication</name>
+        <n>hive.server2.authentication</n>
         <value>NONE</value>
     </property>
     <property>
-        <name>datanucleus.autoCreateSchema</name>
+        <n>datanucleus.autoCreateSchema</n>
         <value>true</value>
     </property>
     <property>
-        <name>datanucleus.fixedDatastore</name>
+        <n>datanucleus.fixedDatastore</n>
         <value>false</value>
     </property>
     <property>
-        <name>datanucleus.autoCreateTables</name>
+        <n>datanucleus.autoCreateTables</n>
         <value>true</value>
     </property>
     <property>
-        <name>hive.metastore.schema.verification</name>
+        <n>hive.metastore.schema.verification</n>
         <value>false</value>
     </property>
 </configuration>

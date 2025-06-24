@@ -168,17 +168,19 @@ services:
     environment:
       - HDFS_NAMENODE=namenode:9000
 
-  # === HIVE SERVICES (VERSION DERBY - QUI MARCHE) ===
+  # === HIVE SERVICES (VERSION DERBY CORRIGÉE AVEC PERMISSIONS) ===
   hive-metastore:
     image: apache/hive:3.1.3
     container_name: hive-metastore
     hostname: hive-metastore
+    user: root
     environment:
       - SERVICE_NAME=metastore
       - DB_DRIVER=derby
+      - SKIP_SCHEMA_INIT=true
     volumes:
       - ./hive-config/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
-      - hive_metastore_data:/opt/hive/data/metastore_db
+      - hive_metastore_data:/tmp/hive_metastore
     ports:
       - "9083:9083"
     depends_on:
@@ -186,11 +188,19 @@ services:
     networks:
       - hadoop-net
     restart: unless-stopped
+    command: >
+      bash -c "
+        mkdir -p /tmp/hive_metastore &&
+        chmod 777 /tmp/hive_metastore &&
+        /opt/hive/bin/schematool -dbType derby -initSchema --verbose || true &&
+        /entrypoint.sh
+      "
 
   hive-server:
     image: apache/hive:3.1.3
     container_name: hive-server
     hostname: hive-server
+    user: root
     environment:
       - SERVICE_NAME=hiveserver2
       - DB_DRIVER=derby
@@ -204,31 +214,6 @@ services:
     networks:
       - hadoop-net
     restart: unless-stopped
-
-  # === SUPPRIMEZ OU COMMENTEZ CES SECTIONS ===
-
-  # === INTEGRATION API IA ===
-  # ai-api:
-  #   image: psychic-pancake-ai-api:latest
-  #   container_name: hadoop-ai-api
-  #   ports:
-  #     - "8001:8001"
-  #   networks:
-  #     - hadoop-net
-  #   environment:
-  #     - YOLO_API_URL=http://yolo-api:8000
-  #   restart: unless-stopped
-
-  # === API YOLO (version qui marche) ===
-  # yolo-api:
-  #   image: psychic-pancake-yolo-api:latest
-  #   container_name: hadoop-yolo-api
-  #   hostname: yolo-api
-  #   ports:
-  #     - "8000:8000"
-  #   networks:
-  #     - hadoop-net
-  #   restart: unless-stopped
 
 volumes:
   hadoop_namenode:

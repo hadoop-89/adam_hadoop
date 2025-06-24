@@ -41,12 +41,17 @@ case "${1:-}" in
         ACTION="status"
         echo -e "${BLUE}📊 Mode: Status check${NC}"
         ;;
+    --fix-hive)
+        ACTION="fix-hive"
+        echo -e "${YELLOW}🔧 Mode: Fix Hive${NC}"
+        ;;
     --help|-h)
-        echo -e "${YELLOW}Usage: $0 [--clean|--fresh|--status|--help]${NC}"
+        echo -e "${YELLOW}Usage: $0 [--clean|--fresh|--status|--fix-hive|--help]${NC}"
         echo "  (no args)  Deploy or check current cluster"
         echo "  --clean    Stop and restart containers"
         echo "  --fresh    Complete reset with data removal"
         echo "  --status   Show current status only"
+        echo "  --fix-hive Fix Hive configuration issues"
         echo "  --help     Show this help"
         exit 0
         ;;
@@ -200,6 +205,37 @@ test_hdfs() {
     fi
 }
 
+fix_hive() {
+    echo -e "\n${YELLOW}🔧 Fixing Hive configuration...${NC}"
+    
+    # Arrêter les services Hive
+    echo -e "${YELLOW}⏹️ Stopping Hive services...${NC}"
+    docker-compose stop hive-metastore hive-server || true
+    docker-compose rm -f hive-metastore hive-server || true
+    
+    # Nettoyer les volumes problématiques
+    echo -e "${YELLOW}🗑️ Cleaning problematic volumes...${NC}"
+    docker volume rm $(docker volume ls -q | grep postgres) 2>/dev/null || true
+    
+    # Redémarrer Hive avec nouvelle configuration
+    echo -e "${YELLOW}🚀 Starting Hive with Derby configuration...${NC}"
+    docker-compose up -d hive-metastore hive-server
+    
+    # Attendre le démarrage
+    echo -e "${YELLOW}⏳ Waiting for Hive to start (60s)...${NC}"
+    sleep 60
+    
+    # Test Hive
+    if docker exec hive-server beeline -u jdbc:hive2://localhost:10000 -e "SHOW DATABASES;" >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Hive is now working properly!${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Hive still has issues${NC}"
+        echo -e "${YELLOW}💡 Check logs: docker logs hive-server${NC}"
+        return 1
+    fi
+}
+
 deploy_cluster() {
     echo -e "\n${YELLOW}📦 Starting Hadoop cluster...${NC}"
     
@@ -249,6 +285,7 @@ show_access_info() {
     echo -e "\n${YELLOW}💡 Useful commands:${NC}"
     echo -e "  $0 --status     # Check cluster health"
     echo -e "  $0 --clean      # Clean restart"
+    echo -e "  $0 --fix-hive   # Fix Hive issues"
     echo -e "  docker-compose logs [service]  # View logs"
     echo -e "  docker exec namenode hdfs dfs -ls /  # Browse HDFS"
 }
@@ -276,20 +313,16 @@ case $ACTION in
         ;;
         
     "fresh")
-        echo -e "\n${RED}⚠️ Fresh deployment will delete ALL data!${NC}"
-        read -p "Continue? Type 'yes' to confirm: " -r
-        echo
+        echo -e "\n${RED}🧹 Fresh deployment - cleaning everything...${NC}"
+        docker-compose down -v --remove-orphans || true
+        docker volume prune -f || true
+        echo -e "${GREEN}✅ Clean slate ready${NC}"
         
-        if [[ $REPLY == "yes" ]]; then
-            echo -e "${RED}🧹 Removing all containers and data...${NC}"
-            docker-compose down -v --remove-orphans || true
-            echo -e "${GREEN}✅ Clean slate ready${NC}"
-            
-            deploy_cluster
-        else
-            echo -e "${YELLOW}Cancelled by user${NC}"
-            exit 0
-        fi
+        deploy_cluster
+        ;;
+        
+    "fix-hive")
+        fix_hive
         ;;
         
     "deploy")
@@ -303,6 +336,7 @@ case $ACTION in
             else
                 echo -e "\n${YELLOW}⚠️ Some services have issues${NC}"
                 echo -e "${YELLOW}💡 Try: $0 --clean for a restart${NC}"
+                echo -e "${YELLOW}💡 Try: $0 --fix-hive if Hive issues${NC}"
             fi
         else
             echo -e "\n${YELLOW}📋 No containers running, starting cluster...${NC}"
@@ -324,3 +358,4 @@ echo -e "\n${BLUE}🎯 Next steps:${NC}"
 echo -e "  • Visit http://localhost:9870 to see HDFS"
 echo -e "  • Visit http://localhost:8501 for the dashboard"
 echo -e "  • Run '$0 --status' anytime to check health"
+echo -e "  • Run '$0 --fix-hive' if Hive has issues"
