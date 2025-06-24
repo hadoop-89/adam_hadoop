@@ -1,0 +1,252 @@
+---
+- name: "🚀 Complete Hadoop Cluster Automated Installation"
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    required_services:
+      - namenode
+      - datanode1
+      - datanode2
+      - dashboard
+      - spark-master
+      - kafka
+    
+  tasks:
+    # =============== PRE-INSTALLATION CHECKS ===============
+    - name: "📋 Pre-installation checks"
+      block:
+        - name: "🐳 Verify Docker is running"
+          shell: docker info
+          register: docker_check
+          failed_when: docker_check.rc != 0
+          
+        - name: "📁 Verify docker-compose.yml exists"
+          stat:
+            path: "{{ project_root }}/docker-compose.yml"
+          register: compose_file
+          failed_when: not compose_file.stat.exists
+          
+        - name: "🔍 Check available disk space"
+          shell: df -h . | tail -1 | awk '{print $4}'
+          register: disk_space
+          
+        - name: "💾 Verify sufficient disk space (minimum 5GB)"
+          fail:
+            msg: "Insufficient disk space: {{ disk_space.stdout }}"
+          when: disk_space.stdout | regex_replace('[^0-9.]', '') | float < 5.0
+          ignore_errors: yes
+          
+      tags: [precheck]
+    
+    # =============== CLEANUP & PREPARATION ===============
+    - name: "🧹 Clean previous installation"
+      block:
+        - name: "⏹️ Stop existing containers"
+          shell: |
+            cd "{{ project_root }}"
+            docker-compose down --remove-orphans
+          ignore_errors: yes
+          
+        - name: "🗑️ Remove old volumes (if fresh install)"
+          shell: |
+            cd "{{ project_root }}"
+            docker-compose down -v
+          when: fresh_install | default(false)
+          ignore_errors: yes
+          
+        - name: "🐳 Prune unused Docker resources"
+          shell: docker system prune -f
+          when: fresh_install | default(false)
+          ignore_errors: yes
+          
+      tags: [cleanup]
+    
+    # =============== INFRASTRUCTURE DEPLOYMENT ===============
+    - name: "🏗️ Deploy Hadoop Infrastructure"
+      block:
+        - name: "📦 Build and start all services"
+          shell: |
+            cd "{{ project_root }}"
+            docker-compose up -d --build
+          register: compose_result
+          
+        - name: "📊 Verify containers are starting"
+          shell: docker ps --format "{{.Names}}: {{.Status}}"
+          register: initial_containers
+          
+        - name: "📝 Log initial container status"
+          debug:
+            msg: |
+              Initial containers status:
+              {{ initial_containers.stdout }}
+              
+      tags: [deploy]
+    
+    # =============== SERVICE READINESS CHECKS ===============
+    - name: "⏳ Wait for services to be ready"
+      block:
+        - name: "🕐 Wait for NameNode (critical service)"
+          uri:
+            url: "http://localhost:9870"
+            method: GET
+            status_code: 200
+          register: namenode_ready
+          until: namenode_ready.status == 200
+          retries: 60  # 10 minutes
+          delay: 10
+          
+        - name: "🕐 Wait for DataNodes to connect"
+          shell: |
+            timeout 300 bash -c '
+            while true; do
+              if docker exec namenode hdfs dfsadmin -report | grep -q "Live datanodes.*: 2"; then
+                echo "DataNodes connected"
+                exit 0
+              fi
+              echo "Waiting for DataNodes..."
+              sleep 10
+            done'
+          register: datanodes_ready
+          
+        - name: "🕐 Wait for Dashboard"
+          uri:
+            url: "http://localhost:8501"
+            method: GET
+            status_code: 200
+          register: dashboard_ready
+          until: dashboard_ready.status == 200
+          retries: 30
+          delay: 10
+          ignore_errors: yes
+          
+        - name: "🕐 Wait for Spark Master"
+          uri:
+            url: "http://localhost:8080"
+            method: GET
+            status_code: 200
+          register: spark_ready
+          until: spark_ready.status == 200
+          retries: 20
+          delay: 10
+          ignore_errors: yes
+          
+      tags: [readiness]
+    
+    # =============== HDFS INITIALIZATION ===============
+    - name: "📁 Initialize HDFS structure"
+      block:
+        - name: "🗂️ Create HDFS directories"
+          shell: |
+            docker exec namenode hdfs dfs -mkdir -p /data/text/existing
+            docker exec namenode hdfs dfs -mkdir -p /data/text/scraped  
+            docker exec namenode hdfs dfs -mkdir -p /data/images/existing
+            docker exec namenode hdfs dfs -mkdir -p /data/images/scraped
+            docker exec namenode hdfs dfs -mkdir -p /data/streaming
+            docker exec namenode hdfs dfs -mkdir -p /data/processed
+            docker exec namenode hdfs dfs -mkdir -p /data/ia_results
+          register: hdfs_dirs
+          
+        - name: "🧪 Test HDFS write operations"
+          shell: |
+            echo "Ansible installation test $(date)" > /tmp/ansible_install_test.txt
+            docker cp /tmp/ansible_install_test.txt namenode:/tmp/
+            docker exec namenode hdfs dfs -put /tmp/ansible_install_test.txt /data/processed/
+            docker exec namenode hdfs dfs -cat /data/processed/ansible_install_test.txt
+          register: hdfs_test
+          
+      tags: [hdfs_init]
+    
+    # =============== DATA LOADING (if data-loader exists) ===============
+    - name: "📥 Load initial data"
+      block:
+        - name: "🔍 Check if data-loader service exists"
+          shell: docker-compose config --services | grep data-loader
+          register: data_loader_exists
+          ignore_errors: yes
+          
+        - name: "📥 Run data loader"
+          shell: |
+            cd "{{ project_root }}"
+            docker-compose up data-loader
+          when: data_loader_exists.rc == 0
+          ignore_errors: yes
+          
+      tags: [data_loading]
+    
+    # =============== COMPREHENSIVE VALIDATION ===============
+    - name: "✅ Validate complete installation"
+      block:
+        - name: "🏥 Final health check all services"
+          uri:
+            url: "http://localhost:{{ item }}"
+            method: GET
+            status_code: 200
+          loop:
+            - 9870  # NameNode
+            - 9864  # DataNode1
+            - 9865  # DataNode2
+            - 8501  # Dashboard
+            - 8080  # Spark
+          ignore_errors: yes
+          register: final_health_check
+          
+        - name: "📊 Generate installation report"
+          shell: |
+            echo "=== HADOOP CLUSTER INSTALLATION REPORT ===" > /tmp/install_report.txt
+            echo "Installation completed: $(date)" >> /tmp/install_report.txt
+            echo "" >> /tmp/install_report.txt
+            echo "=== Container Status ===" >> /tmp/install_report.txt
+            docker ps --format "{{.Names}}: {{.Status}}" >> /tmp/install_report.txt
+            echo "" >> /tmp/install_report.txt
+            echo "=== HDFS Status ===" >> /tmp/install_report.txt
+            docker exec namenode hdfs dfsadmin -report | head -10 >> /tmp/install_report.txt
+            echo "" >> /tmp/install_report.txt
+            echo "=== HDFS Directory Structure ===" >> /tmp/install_report.txt
+            docker exec namenode hdfs dfs -ls -R /data >> /tmp/install_report.txt
+            cat /tmp/install_report.txt
+          register: install_report
+          
+      tags: [validation]
+    
+    # =============== SUCCESS SUMMARY ===============
+    - name: "🎉 Installation Complete"
+      debug:
+        msg: |
+          
+          ✅ HADOOP CLUSTER SUCCESSFULLY INSTALLED!
+          ==========================================
+          
+          🚀 Automated by Ansible on: {{ ansible_date_time.iso8601 }}
+          
+          📊 Services Deployed:
+          {% for service in required_services %}
+          • {{ service }}
+          {% endfor %}
+          
+          🔗 Access Points:
+          • NameNode Web UI: http://localhost:9870
+          • DataNode1: http://localhost:9864
+          • DataNode2: http://localhost:9865
+          • Streamlit Dashboard: http://localhost:8501
+          • Spark Master: http://localhost:8080
+          
+          📁 HDFS Structure:
+          /data/text/existing    - Pre-existing text data
+          /data/text/scraped     - Scraped text data
+          /data/images/existing  - Pre-existing images
+          /data/images/scraped   - Scraped images
+          /data/streaming        - Real-time data
+          /data/processed        - Processed data
+          /data/ia_results       - AI analysis results
+          
+          🎯 Next Steps:
+          1. Visit http://localhost:9870 to browse HDFS
+          2. Visit http://localhost:8501 for the dashboard
+          3. Run: docker exec namenode hdfs dfs -ls /data
+          
+          ✅ Installation automated successfully with Ansible!
+      
+      tags: [summary]

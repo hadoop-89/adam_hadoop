@@ -46,46 +46,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
       
-    - name: Build Data Ingestion image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: ./Dockerfile.ingestion
-        push: false
-        tags: hadoop-data-ingestion:latest
-        load: true
+    - name: Build and verify images
+      run: |
+        # Test docker-compose build
+        docker-compose build
+        docker images | grep -E "(hadoop|namenode|datanode)"
         
-    - name: Build Data Processing image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: ./Dockerfile.processing
-        push: false
-        tags: hadoop-data-processing:latest
-        load: true
-        
-    - name: Build API Interaction image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: ./Dockerfile.api
-        push: false
-        tags: hadoop-api-interaction:latest
-        load: true
-        
-    - name: Build Visualization image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: ./Dockerfile.visualization
-        push: false
-        tags: hadoop-visualization:latest
-        load: true
-        
-    - name: Verify images were built
-      run: docker images
-      
-  deploy:
+  # 🆕 NOUVEAU JOB ANSIBLE DEPLOYMENT
+  ansible-deploy:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -93,18 +61,50 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.8'
-        
     - name: Install Ansible
       run: |
         python -m pip install --upgrade pip
         pip install ansible
         
-    - name: Check deploy configuration
+    - name: Create logs directory
+      run: mkdir -p logs
+        
+    - name: Deploy Hadoop cluster with simplified script
       run: |
-        echo "Verify deploy configuration - CI/CD pipeline ready for deployment"
-        echo "To deploy with Ansible, add SSH_PRIVATE_KEY to GitHub secrets and uncomment the deploy step in workflow"
-        # ansible-playbook -i ansible/inventory.ini ansible/deploy-hadoop.yml
+        chmod +x scripts/simple-deploy.sh
+        # Use clean deployment in CI
+        ./scripts/simple-deploy.sh --clean
+        
+    - name: Run comprehensive health check with Ansible
+      run: |
+        # Run the detailed Ansible health check
+        ansible-playbook -i ansible/inventory.ini ansible/health-check.yml -v
+        
+    - name: Verify critical services
+      run: |
+        # Double-check critical services are responding
+        curl -f http://localhost:9870 || exit 1
+        curl -f http://localhost:8501 || exit 1
+        
+    - name: Test HDFS operations
+      run: |
+        # Test basic HDFS operations
+        docker exec namenode hdfs dfs -mkdir -p /test/ci
+        echo "CI test $(date)" | docker exec -i namenode tee /tmp/ci-test.txt
+        docker exec namenode hdfs dfs -put /tmp/ci-test.txt /test/ci/
+        docker exec namenode hdfs dfs -cat /test/ci/ci-test.txt
+        
+    - name: Upload health report
+      uses: actions/upload-artifact@v2
+      if: always()
+      with:
+        name: health-report
+        path: logs/health-report-*.md
+        
+    - name: Display final status
+      run: |
+        echo "🎉 Hadoop cluster deployed and tested successfully!"
+        echo "📊 Services accessible:"
+        echo "• NameNode: http://localhost:9870"
+        echo "• Dashboard: http://localhost:8501" 
+        ./scripts/simple-deploy.sh --status

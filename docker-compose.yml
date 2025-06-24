@@ -168,33 +168,20 @@ services:
     environment:
       - HDFS_NAMENODE=namenode:9000
 
-  # === HIVE SERVICES ===
-  hive-postgres:
-    image: postgres:13
-    container_name: hive-postgres
-    environment:
-      - POSTGRES_DB=metastore
-      - POSTGRES_USER=hive
-      - POSTGRES_PASSWORD=hive
-    volumes:
-      - hive_postgres:/var/lib/postgresql/data
-    networks:
-      - hadoop-net
-    restart: unless-stopped
-
+  # === HIVE SERVICES (VERSION DERBY - QUI MARCHE) ===
   hive-metastore:
     image: apache/hive:3.1.3
     container_name: hive-metastore
     hostname: hive-metastore
     environment:
       - SERVICE_NAME=metastore
-      - DB_DRIVER=postgres
+      - DB_DRIVER=derby
     volumes:
-      - ./hive-config/hive-site-postgres.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./hive-config/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      - hive_metastore_data:/opt/hive/data/metastore_db
     ports:
       - "9083:9083"
     depends_on:
-      - hive-postgres
       - namenode
     networks:
       - hadoop-net
@@ -206,8 +193,9 @@ services:
     hostname: hive-server
     environment:
       - SERVICE_NAME=hiveserver2
+      - DB_DRIVER=derby
     volumes:
-      - ./hive-config/hive-site-postgres.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./hive-config/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
     ports:
       - "10000:10000"
       - "10002:10002"
@@ -246,7 +234,7 @@ volumes:
   hadoop_namenode:
   hadoop_datanode1:
   hadoop_datanode2:
-  hive_postgres:
+  hive_metastore_data:
 
 networks:
   hadoop-net:

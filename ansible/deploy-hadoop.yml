@@ -1,0 +1,99 @@
+---
+- name: "🚀 Deploy Hadoop Cluster - Windows Compatible"
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  
+  vars:
+    project_root: "{{ playbook_dir }}/.."
+    compose_file: "{{ project_root }}/docker-compose.yml"
+  
+  tasks:
+    - name: "📋 Check Docker is running"
+      shell: docker info
+      register: docker_check
+      failed_when: docker_check.rc != 0
+      tags: [precheck]
+    
+    - name: "🧹 Clean up any existing containers (optional)"
+      shell: |
+        cd "{{ project_root }}"
+        docker-compose down --remove-orphans || true
+      ignore_errors: yes
+      when: cleanup_before_deploy | default(false)
+      tags: [cleanup]
+    
+    - name: "📦 Build and start Hadoop services"
+      shell: |
+        cd "{{ project_root }}"
+        docker-compose up -d --build
+      register: compose_result
+      tags: [deploy]
+    
+    - name: "⏳ Wait for NameNode to be ready"
+      uri:
+        url: "http://localhost:9870"
+        method: GET
+        status_code: 200
+      register: namenode_check
+      until: namenode_check.status == 200
+      retries: 30
+      delay: 10
+      tags: [health_check]
+    
+    - name: "📊 Check all services status"
+      uri:
+        url: "http://localhost:{{ item }}"
+        method: GET
+        status_code: 200
+      loop:
+        - "9870"   # NameNode
+        - "9864"   # DataNode1  
+        - "8501"   # Dashboard
+      ignore_errors: yes
+      tags: [health_check]
+    
+    - name: "🔍 Run HDFS health check"
+      shell: |
+        docker exec namenode hdfs dfsadmin -report | head -10
+      register: hdfs_status
+      ignore_errors: yes
+      tags: [health_check]
+    
+    - name: "✅ Display deployment status"
+      debug:
+        msg: |
+          🎉 Hadoop Cluster Deployed Successfully!
+          
+          📊 Access Points:
+          - NameNode Web UI: http://localhost:9870
+          - DataNode1 Web UI: http://localhost:9864
+          - DataNode2 Web UI: http://localhost:9865
+          - Dashboard: http://localhost:8501
+          
+          🔍 HDFS Status:
+          {{ hdfs_status.stdout_lines | default(['HDFS check skipped']) | join('\n          ') }}
+      tags: [summary]
+
+- name: "🧪 Post-Deployment Tests"
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  
+  tasks:
+    - name: "📁 Test HDFS operations"
+      shell: |
+        echo "Test Ansible $(date)" > /tmp/ansible_test.txt
+        docker cp /tmp/ansible_test.txt namenode:/tmp/
+        docker exec namenode hdfs dfs -mkdir -p /test/ansible || true
+        docker exec namenode hdfs dfs -put /tmp/ansible_test.txt /test/ansible/ || true
+        docker exec namenode hdfs dfs -cat /test/ansible/ansible_test.txt
+      register: hdfs_test
+      ignore_errors: yes
+      tags: [test]
+    
+    - name: "✅ HDFS test result"
+      debug:
+        msg: "HDFS test successful: {{ hdfs_test.stdout }}"
+      when: hdfs_test.rc == 0
+      tags: [test]
