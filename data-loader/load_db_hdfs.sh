@@ -116,13 +116,23 @@ fi
 # === NOUVEAU: Téléchargement de bases de données existantes ===
 echo "📥 === TÉLÉCHARGEMENT DE BASES DE DONNÉES EXISTANTES ==="
 
+# Configurer Kaggle si les variables d'environnement sont présentes
+if [ ! -f "/root/.kaggle/kaggle.json" ] && [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
+    echo "⚙️ Création du fichier de configuration Kaggle à partir des variables d'environnement..."
+    mkdir -p /root/.kaggle
+    cat > /root/.kaggle/kaggle.json <<EOF
+{"username":"$KAGGLE_USERNAME","key":"$KAGGLE_KEY"}
+EOF
+    chmod 600 /root/.kaggle/kaggle.json
+fi
+
 # Vérifier si Kaggle est configuré
-if [ ! -f "/root/.kaggle/kaggle.json" ]; then
-    echo "⚠️ Kaggle non configuré, création de données de test à la place..."
-    USE_KAGGLE=false
-else
+if [ -f "/root/.kaggle/kaggle.json" ]; then
     echo "✅ Kaggle configuré, téléchargement des datasets..."
     USE_KAGGLE=true
+else
+    echo "⚠️ Kaggle non configuré, création de données de test à la place..."
+    USE_KAGGLE=false
 fi
 
 if [ "$USE_KAGGLE" = true ]; then

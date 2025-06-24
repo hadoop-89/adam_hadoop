@@ -25,10 +25,12 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 # 🔹 Préparer les dossiers
 RUN mkdir -p /datasets/text /datasets/images
 
-# 🔹 Ajouter le script + credentials Kaggle
+# 🔹 Ajouter le script
 COPY load_db_hdfs.sh .
-COPY kaggle.json /root/.kaggle/kaggle.json
-RUN chmod 600 /root/.kaggle/kaggle.json
 RUN chmod +x load_db_hdfs.sh
+
+# 🔹 Préparer le dossier de configuration Kaggle
+ENV KAGGLE_CONFIG_DIR=/root/.kaggle
+RUN mkdir -p "$KAGGLE_CONFIG_DIR"
 
 CMD ["./load_db_hdfs.sh"]

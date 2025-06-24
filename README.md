@@ -18,10 +18,12 @@ Le cluster est constitué de trois conteneurs Docker :
 ## 🚀 Installation et Démarrage  
 
 ### 1️⃣ Prérequis  
-Avant de commencer, assurez-vous d'avoir :  
-- **WSL2 + Ubuntu** installé sous Windows  
-- **Docker Desktop** configuré avec WSL  
-- **Kaggle CLI** installé (`pip install kaggle`)  
+Avant de commencer, assurez-vous d'avoir :
+- **WSL2 + Ubuntu** installé sous Windows
+- **Docker Desktop** configuré avec WSL
+- **Kaggle CLI** installé (`pip install kaggle`)
+- Des identifiants Kaggle disponibles via un fichier `~/.kaggle/kaggle.json` ou
+  les variables d'environnement `KAGGLE_USERNAME` et `KAGGLE_KEY`
 
 ### 2️⃣ Démarrer le cluster Hadoop  
 ```bash  
@@ -35,8 +37,10 @@ docker ps
 ```  
 Vous devriez voir `namenode`, `datanode1` et `datanode2` en cours d'exécution.  
 
-### 4️⃣ Charger les bases de données Kaggle  
-Lancer le script d'importation :  
+### 4️⃣ Charger les bases de données Kaggle
+Assurez-vous que vos identifiants Kaggle sont disponibles (fichier `kaggle.json`
+monté dans le conteneur ou variables `KAGGLE_USERNAME` et `KAGGLE_KEY`).
+Lancer ensuite le script d'importation :
 ```bash  
 chmod +x load_db_kaggle.sh  
 ./load_db_kaggle.sh  
