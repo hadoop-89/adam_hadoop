@@ -410,6 +410,9 @@ cd adam_hadoop
 # Set permissions (MANDATORY STEP)
 chmod +x scripts/*.sh
 
+# Stop everything (all containers) and clean everything (volumes, unused images, cache, orphaned networks, etc.)
+docker stop $(docker ps -aq) && docker system prune -af --volumes
+
 # Deploy complete cluster
 ./scripts/deploy.sh
 ```
