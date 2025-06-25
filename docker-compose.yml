@@ -167,6 +167,11 @@ services:
     restart: "no"
     environment:
       - HDFS_NAMENODE=namenode:9000
+      - SERVER_PID=""  # Ajouter cette ligne pour éviter le warning
+    depends_on:
+      - namenode
+      - datanode1
+      - datanode2
 
   # === HIVE SERVICES (VERSION CORRIGÉE) ===
   hive-metastore:

@@ -263,7 +263,7 @@ deploy_all_services_ordered() {
     
     # Phase 5: HDFS Basic Verification (AVANT data-loader)
     echo -e "\n${BLUE}🧪 Phase 5: Basic HDFS Verification${NC}"
-    if docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
+    if docker exec namenode bash -c 'hdfs dfs -ls /' >/dev/null 2>&1; then
         echo -e "${GREEN}✅ HDFS filesystem accessible (basic)${NC}"
     else
         echo -e "${RED}❌ HDFS basic access failed${NC}"

@@ -13,7 +13,8 @@ RUN apt update && apt install -y \
     python3 \
     python3-pip \
     procps \
-    nano
+    nano \
+    dos2unix
 
 # 🔹 Installer Kaggle CLI
 RUN pip3 install kaggle
@@ -25,12 +26,15 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 # 🔹 Préparer les dossiers
 RUN mkdir -p /datasets/text /datasets/images
 
-# 🔹 Ajouter le script
-COPY load_db_hdfs.sh .
-RUN chmod +x load_db_hdfs.sh
+# 🔹 Copier et corriger le script (conversion Windows->Linux)
+COPY load_db_hdfs.sh ./load_db_hdfs.sh
+RUN dos2unix ./load_db_hdfs.sh && chmod +x ./load_db_hdfs.sh
 
 # 🔹 Préparer le dossier de configuration Kaggle
 ENV KAGGLE_CONFIG_DIR=/root/.kaggle
 RUN mkdir -p "$KAGGLE_CONFIG_DIR"
+
+# 🔹 Corriger le problème SERVER_PID
+ENV SERVER_PID=""
 
 CMD ["./load_db_hdfs.sh"]
