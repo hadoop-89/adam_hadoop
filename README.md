@@ -432,6 +432,9 @@ docker ps
 
 # Check logs if issues occur
 docker-compose logs -f
+
+# After Hadoop and AI container build and running
+./run_integration_test.sh
 ```
 
 ### 3. Access Web Interfaces
