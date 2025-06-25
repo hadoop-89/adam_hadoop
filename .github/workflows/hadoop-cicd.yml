@@ -1,110 +1,57 @@
-name: Hadoop Project CI/CD
+name: Hadoop Complete Cluster CI/CD
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - master
 
 jobs:
-  test:
+  hadoop-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.8'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install pytest pytest-cov flake8
-        
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        
-    - name: Test with pytest
-      run: |
-        pytest --cov=src
-        
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-      
-    - name: Build and verify images
-      run: |
-        # Test docker-compose build
-        docker-compose build
-        docker images | grep -E "(hadoop|namenode|datanode)"
-        
-  # 🆕 NOUVEAU JOB ANSIBLE DEPLOYMENT
-  ansible-deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Install Ansible
-      run: |
-        python -m pip install --upgrade pip
-        pip install ansible
-        
-    - name: Create logs directory
-      run: mkdir -p logs
-        
-    - name: Deploy Hadoop cluster with simplified script
-      run: |
-        chmod +x scripts/simple-deploy.sh
-        # Use clean deployment in CI
-        ./scripts/simple-deploy.sh --clean
-        
-    - name: Run comprehensive health check with Ansible
-      run: |
-        # Run the detailed Ansible health check
-        ansible-playbook -i ansible/inventory.ini ansible/health-check.yml -v
-        
-    - name: Verify critical services
-      run: |
-        # Double-check critical services are responding
-        curl -f http://localhost:9870 || exit 1
-        curl -f http://localhost:8501 || exit 1
-        
-    - name: Test HDFS operations
-      run: |
-        # Test basic HDFS operations
-        docker exec namenode hdfs dfs -mkdir -p /test/ci
-        echo "CI test $(date)" | docker exec -i namenode tee /tmp/ci-test.txt
-        docker exec namenode hdfs dfs -put /tmp/ci-test.txt /test/ci/
-        docker exec namenode hdfs dfs -cat /test/ci/ci-test.txt
-        
-    - name: Upload health report
-      uses: actions/upload-artifact@v2
-      if: always()
-      with:
-        name: health-report
-        path: logs/health-report-*.md
-        
-    - name: Display final status
-      run: |
-        echo "🎉 Hadoop cluster deployed and tested successfully!"
-        echo "📊 Services accessible:"
-        echo "• NameNode: http://localhost:9870"
-        echo "• Dashboard: http://localhost:8501" 
-        ./scripts/simple-deploy.sh --status
+      # 1. Clone le repo
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Vérifie les versions de Docker & Docker Compose (debug et audit)
+      - name: Show Docker and Compose version
+        run: |
+          docker --version
+          docker compose version || docker-compose --version
+
+      # 3. Active Docker Buildx (utile pour build avancé)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # 4. Login DockerHub (utilise les secrets du repo GitHub)
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 5. Build toutes les images définies dans docker-compose.yml
+      - name: Build Hadoop images
+        run: |
+          docker compose build || docker-compose build
+
+      # 6. Lance le déploiement complet, ordonné
+      - name: Run Complete Deployment Script
+        run: |
+          chmod +x ./deploy.sh
+          ./deploy.sh --ordered
+
+      # 7. Affiche l'état du cluster (healthcheck)
+      - name: Show cluster status
+        run: |
+          ./deploy.sh --status
+
+      # 8. (OPTIONNEL) Nettoie tout le Docker pour ce runner après exécution
+      - name: Cleanup all Docker resources (optional)
+        if: always()
+        run: |
+          docker stop $(docker ps -aq) || true
+          docker system prune -af --volumes || true
