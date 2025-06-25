@@ -12,44 +12,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Clone le repo
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. Vérifie les versions de Docker & Docker Compose (debug et audit)
       - name: Show Docker and Compose version
         run: |
           docker --version
           docker compose version || docker-compose --version
 
-      # 3. Active Docker Buildx (utile pour build avancé)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 4. Login DockerHub (utilise les secrets du repo GitHub)
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # (Login DockerHub supprimé)
 
-      # 5. Build toutes les images définies dans docker-compose.yml
       - name: Build Hadoop images
         run: |
           docker compose build || docker-compose build
 
-      # 6. Lance le déploiement complet, ordonné
       - name: Run Complete Deployment Script
         run: |
           chmod +x ./deploy.sh
           ./deploy.sh --ordered
 
-      # 7. Affiche l'état du cluster (healthcheck)
       - name: Show cluster status
         run: |
           ./deploy.sh --status
 
-      # 8. (OPTIONNEL) Nettoie tout le Docker pour ce runner après exécution
       - name: Cleanup all Docker resources (optional)
         if: always()
         run: |
