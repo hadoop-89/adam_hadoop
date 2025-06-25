@@ -104,6 +104,21 @@ check_docker() {
     echo -e "${GREEN}✅ docker-compose.yml found${NC}"
 }
 
+ensure_network() {
+    echo -e "\n${YELLOW}📡 Ensuring hadoop-net network exists...${NC}"
+    
+    if ! docker network ls | grep -q hadoop-net; then
+        echo -e "${YELLOW}Creating hadoop-net network...${NC}"
+        docker network create hadoop-net
+        echo -e "${GREEN}✅ Network hadoop-net created${NC}"
+    else
+        echo -e "${GREEN}✅ Network hadoop-net already exists${NC}"
+    fi
+    
+    # Export la variable SERVER_PID manquante
+    export SERVER_PID=""
+}
+
 complete_cleanup() {
     echo -e "\n${RED}🧹 COMPLETE CLEANUP ALL SERVICES${NC}"
     
@@ -123,6 +138,11 @@ complete_cleanup() {
     echo -e "${YELLOW}🧽 General cleanup...${NC}"
     docker system prune -f
     docker volume prune -f
+
+    # 5. Supprimer et recréer le réseau
+    echo -e "${YELLOW}🌐 Recreating network...${NC}"
+    docker network rm hadoop-net 2>/dev/null || true
+    docker network create hadoop-net
     
     echo -e "${GREEN}✅ Complete cleanup finished${NC}"
 }
@@ -218,11 +238,12 @@ wait_for_service() {
     return 1
 }
 
-# CORRECTION DE LA FONCTION deploy_all_services_ordered()
-# =====================================================
 
 deploy_all_services_ordered() {
     echo -e "\n${YELLOW}🏗️ COMPLETE ORDERED DEPLOYMENT${NC}"
+
+    # Phase 0: Ensure network exists
+    ensure_network
     
     # Phase 1: Build
     echo -e "\n${YELLOW}📦 Phase 1: Building images...${NC}"
@@ -716,6 +737,7 @@ show_access_info() {
 # ============ LOGIQUE PRINCIPALE ============
 
 check_docker
+ensure_network
 
 case $ACTION in
     "status")

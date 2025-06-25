@@ -1,10 +1,11 @@
+from datetime import datetime
 import requests
 import json
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 
 # Configuration
-IA_API_URL = "http://ia-api:8001"  # URL de l'API de votre collègue
+IA_API_URL = "http://ai-api-unified:8001"  # Nom du conteneur IA
 BATCH_SIZE = 10
 
 def send_to_ia_api(data):

@@ -85,6 +85,7 @@ services:
       - SPARK_USER=root
       - HOME=/root
       - USER=root
+      - IA_API_URL=http://ai-api-unified:8001
     ports:
       - "8080:8080"
       - "7077:7077"
@@ -247,3 +248,4 @@ volumes:
 networks:
   hadoop-net:
     driver: bridge
+    external: true

@@ -1,4 +1,5 @@
-requests
-kafka-python
-feedparser
-beautifulsoup4
+requests>=2.31.0
+kafka-python>=2.0.2
+feedparser>=6.0.10
+beautifulsoup4>=4.12.0
+lxml>=4.9.0

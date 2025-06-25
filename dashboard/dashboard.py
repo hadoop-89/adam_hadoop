@@ -6,6 +6,10 @@ import time
 import requests
 import json
 
+from kafka import KafkaConsumer
+import json
+from collections import defaultdict
+
 st.set_page_config(page_title="Hadoop Dashboard", layout="wide")
 
 st.title("📊 Dashboard Hadoop - Analyse en temps réel")
@@ -96,6 +100,105 @@ def read_hdfs_images():
     except Exception as e:
         st.error(f"Erreur lecture images HDFS: {e}")
         return None
+
+@st.cache_data(ttl=30)  # Cache plus court pour data temps réel
+def read_kafka_scraping_data():
+    """Lire les données de scraping depuis Kafka"""
+    try:
+        # Consumer Kafka pour lire les dernières données
+        consumer = KafkaConsumer(
+            'text-topic',
+            'images-topic', 
+            bootstrap_servers=['kafka:9092'],
+            auto_offset_reset='latest',
+            consumer_timeout_ms=5000,  # 5 secondes timeout
+            value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        )
+        
+        scraped_data = {
+            'text_articles': [],
+            'image_metadata': [],
+            'last_update': None
+        }
+        
+        # Lire les messages récents
+        message_count = 0
+        for message in consumer:
+            if message_count >= 50:  # Limiter à 50 messages récents
+                break
+                
+            data = message.value
+            
+            if message.topic == 'text-topic':
+                scraped_data['text_articles'].append(data)
+            elif message.topic == 'images-topic':
+                scraped_data['image_metadata'].append(data)
+                
+            scraped_data['last_update'] = data.get('scraped_at', 'Unknown')
+            message_count += 1
+        
+        consumer.close()
+        return scraped_data
+        
+    except Exception as e:
+        st.warning(f"Kafka non accessible: {e}")
+        return None
+
+@st.cache_data(ttl=60)
+def get_scraping_statistics():
+    """Statistiques de scraping depuis Kafka"""
+    try:
+        consumer = KafkaConsumer(
+            'text-topic',
+            'images-topic',
+            bootstrap_servers=['kafka:9092'],
+            auto_offset_reset='earliest',
+            consumer_timeout_ms=3000,
+            value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        )
+        
+        stats = {
+            'total_articles': 0,
+            'total_images': 0,
+            'sources': defaultdict(int),
+            'categories': defaultdict(int),
+            'last_hour_count': 0
+        }
+        
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        
+        for message in consumer:
+            data = message.value
+            
+            if message.topic == 'text-topic':
+                stats['total_articles'] += 1
+                stats['sources'][data.get('source', 'unknown')] += 1
+                stats['categories'][data.get('category', 'general')] += 1
+                
+                # Compter dernière heure
+                try:
+                    scraped_time = datetime.fromisoformat(data.get('scraped_at', '').replace('Z', ''))
+                    if scraped_time >= one_hour_ago:
+                        stats['last_hour_count'] += 1
+                except:
+                    pass
+                    
+            elif message.topic == 'images-topic':
+                stats['total_images'] += 1
+        
+        consumer.close()
+        return dict(stats)
+        
+    except Exception as e:
+        return {
+            'total_articles': 0,
+            'total_images': 0,
+            'sources': {},
+            'categories': {},
+            'last_hour_count': 0,
+            'error': str(e)
+        }
 
 # Fonction de fallback avec données de test
 def create_test_data():
@@ -235,6 +338,170 @@ if images_df is not None and len(images_df) > 0:
     
     st.dataframe(images_df.head(5), use_container_width=True)
 
+# ============ NOUVELLE SECTION SCRAPING WEB ============
+st.subheader("🌐 Scraping Web en Temps Réel")
+
+# Onglets pour séparer les vues
+tab1, tab2, tab3 = st.tabs(["📊 Statistiques", "📝 Articles Récents", "🖼️ Images Récentes"])
+
+with tab1:
+    st.markdown("### 📈 Statistiques de Scraping")
+    
+    # Lire les stats
+    scraping_stats = get_scraping_statistics()
+    
+    # Métriques principales
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("📰 Total Articles", scraping_stats.get('total_articles', 0))
+    with col2:
+        st.metric("🖼️ Total Images", scraping_stats.get('total_images', 0))
+    with col3:
+        st.metric("🕐 Dernière Heure", scraping_stats.get('last_hour_count', 0))
+    with col4:
+        sources_count = len(scraping_stats.get('sources', {}))
+        st.metric("🌐 Sources Actives", sources_count)
+    
+    # Graphiques de répartition
+    if scraping_stats.get('sources'):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Graphique sources
+            sources_data = scraping_stats['sources']
+            fig1 = px.pie(
+                values=list(sources_data.values()),
+                names=list(sources_data.keys()),
+                title="Répartition par Source"
+            )
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            # Graphique catégories
+            categories_data = scraping_stats['categories']
+            if categories_data:
+                fig2 = px.bar(
+                    x=list(categories_data.keys()),
+                    y=list(categories_data.values()),
+                    title="Articles par Catégorie"
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("📊 Pas de données de scraping trouvées dans Kafka")
+
+with tab2:
+    st.markdown("### 📝 Articles Scrapés Récemment")
+    
+    # Lire les données récentes
+    scraped_data = read_kafka_scraping_data()
+    
+    if scraped_data and scraped_data['text_articles']:
+        articles = scraped_data['text_articles'][-10:]  # 10 derniers
+        
+        for i, article in enumerate(reversed(articles)):
+            with st.expander(f"📰 {article.get('title', 'Sans titre')[:60]}..."):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.write(f"**Source:** {article.get('source', 'Unknown')}")
+                    st.write(f"**Catégorie:** {article.get('category', 'general')}")
+                    st.write(f"**Contenu:** {article.get('content', 'Pas de contenu')[:200]}...")
+                    if article.get('url'):
+                        st.write(f"**URL:** {article['url']}")
+                
+                with col2:
+                    st.write(f"🕐 {article.get('scraped_at', 'Unknown')[:19]}")
+                    st.write(f"📊 {article.get('word_count', 0)} mots")
+                    if 'upvotes' in article:
+                        st.write(f"👍 {article['upvotes']} upvotes")
+        
+        if scraped_data.get('last_update'):
+            st.success(f"✅ Dernière mise à jour: {scraped_data['last_update'][:19]}")
+    else:
+        st.warning("⚠️ Aucun article récent trouvé dans Kafka")
+        st.info("💡 Le scraper est peut-être en cours de démarrage")
+
+with tab3:
+    st.markdown("### 🖼️ Métadonnées Images Récentes")
+    
+    if scraped_data and scraped_data['image_metadata']:
+        images = scraped_data['image_metadata'][-8:]  # 8 dernières
+        
+        # Affichage en grille
+        cols = st.columns(2)
+        
+        for i, img_data in enumerate(reversed(images)):
+            col = cols[i % 2]
+            
+            with col:
+                with st.container():
+                    st.markdown(f"**🖼️ {img_data.get('title', 'Sans titre')[:40]}**")
+                    st.write(f"**Source:** {img_data.get('source', 'Unknown')}")
+                    st.write(f"**Catégorie:** {img_data.get('category', 'general')}")
+                    
+                    if img_data.get('thumbnail_url') and img_data['thumbnail_url'] != 'self':
+                        try:
+                            st.image(img_data['thumbnail_url'], width=200)
+                        except:
+                            st.write("🖼️ Miniature non disponible")
+                    
+                    if 'upvotes' in img_data:
+                        st.write(f"👍 {img_data['upvotes']} | 💬 {img_data.get('comments', 0)}")
+                    
+                    st.write(f"🕐 {img_data.get('scraped_at', 'Unknown')[:19]}")
+                    st.markdown("---")
+    else:
+        st.warning("⚠️ Aucune métadonnée d'image récente")
+
+# Indicateur de statut du scraper
+st.markdown("### 🤖 Statut du Scraper")
+
+try:
+    # Test de connectivité Kafka
+    test_consumer = KafkaConsumer(
+        bootstrap_servers=['kafka:9092'],
+        consumer_timeout_ms=2000
+    )
+    test_consumer.close()
+    
+    st.success("✅ Scraper connecté à Kafka")
+    
+    # Afficher quelques métriques temps réel
+    if scraped_data and scraped_data.get('last_update'):
+        try:
+            last_update = datetime.fromisoformat(scraped_data['last_update'].replace('Z', ''))
+            time_diff = datetime.now() - last_update
+            
+            if time_diff.total_seconds() < 600:  # Moins de 10 min
+                st.success(f"🟢 Scraper actif (dernière activité: {int(time_diff.total_seconds())}s)")
+            else:
+                st.warning(f"🟡 Scraper ralenti (dernière activité: {int(time_diff.total_seconds()/60)}min)")
+        except:
+            st.info("🔄 Scraper en cours de démarrage...")
+    else:
+        st.info("🔄 Scraper en cours de démarrage...")
+        
+except Exception as e:
+    st.error("❌ Scraper déconnecté de Kafka")
+    st.error(f"Détails: {str(e)}")
+
+# Instructions pour voir les logs
+with st.expander("🔧 Debug Scraper"):
+    st.code("""
+# Voir les logs du scraper
+docker logs scraper -f
+
+# Redémarrer le scraper
+docker-compose restart scraper
+
+# Voir les topics Kafka
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+
+# Lire directement depuis Kafka
+docker exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic text-topic --from-beginning
+    """, language="bash")
+
 # État du cluster
 st.subheader("🖥️ État du Cluster Hadoop")
 
@@ -329,4 +596,4 @@ with st.expander("🔧 Informations de Debug"):
 
 # Footer
 st.markdown("---")
-st.caption(f"Dashboard Hadoop | Données réelles HDFS | Dernière mise à jour: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.caption(f"Dashboard Hadoop | Données réelles HDFS + Scraping temps réel | Dernière mise à jour: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

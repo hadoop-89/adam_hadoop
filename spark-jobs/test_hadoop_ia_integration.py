@@ -10,7 +10,7 @@ def test_ia_api_from_spark():
     print("🚀 === TEST INTÉGRATION HADOOP ↔ IA ===")
     
     # URL de l'API IA (accessible depuis le réseau Hadoop)
-    ia_api_url = "http://hadoop-ai-api:8001"
+    ia_api_url = "http://ai-api-unified:8001"
     
     try:
         # Test 1: Health check
