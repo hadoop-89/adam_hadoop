@@ -417,6 +417,8 @@ docker stop $(docker ps -aq) && docker system prune -af --volumes
 
 # Deploy complete cluster
 ./scripts/deploy.sh
+# Or
+./scripts/deploy.sh --fresh
 ```
 
 ### 2. Verify Deployment
