@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script de déploiement SIMPLE - Sans problèmes Windows - Version finale
+# Script de déploiement COMPLET Hadoop - Tout-en-un avec délais et data-loader
 
 set -e
 
@@ -18,8 +18,8 @@ else
     NC=''
 fi
 
-echo -e "${BLUE}🚀 Hadoop Cluster Deployment (Simple)${NC}"
-echo -e "${BLUE}====================================${NC}"
+echo -e "${BLUE}🚀 Hadoop Cluster Deployment (Complete)${NC}"
+echo -e "${BLUE}=====================================${NC}"
 
 # Aller au répertoire du projet
 cd "$(dirname "$0")/.."
@@ -28,35 +28,38 @@ echo -e "${YELLOW}📂 Project: $PROJECT_ROOT${NC}"
 
 # Parse arguments
 ACTION="deploy"
+SKIP_DATA_LOADER=false
+
 case "${1:-}" in
     --clean) 
         ACTION="clean"
-        echo -e "${YELLOW}🧹 Mode: Clean restart${NC}"
+        echo -e "${YELLOW}🧹 Mode: Clean restart with data loading${NC}"
         ;;
     --fresh) 
         ACTION="fresh" 
-        echo -e "${RED}🧹 Mode: Fresh deployment${NC}"
+        echo -e "${RED}🧹 Mode: Fresh deployment (complete reset)${NC}"
         ;;
     --status) 
         ACTION="status"
-        echo -e "${BLUE}📊 Mode: Status check${NC}"
+        echo -e "${BLUE}📊 Mode: Status check only${NC}"
         ;;
-    --fix-hive)
-        ACTION="fix-hive"
-        echo -e "${YELLOW}🔧 Mode: Fix Hive${NC}"
+    --no-data)
+        ACTION="deploy"
+        SKIP_DATA_LOADER=true
+        echo -e "${BLUE}📋 Mode: Deploy without data loading${NC}"
         ;;
     --help|-h)
-        echo -e "${YELLOW}Usage: $0 [--clean|--fresh|--status|--fix-hive|--help]${NC}"
-        echo "  (no args)  Deploy or check current cluster"
-        echo "  --clean    Stop and restart containers"
-        echo "  --fresh    Complete reset with data removal"
+        echo -e "${YELLOW}Usage: $0 [--clean|--fresh|--status|--no-data|--help]${NC}"
+        echo "  (no args)  Complete deployment with data loading"
+        echo "  --clean    Clean restart with data loading"
+        echo "  --fresh    Complete reset and fresh install"
         echo "  --status   Show current status only"
-        echo "  --fix-hive Fix Hive configuration issues"
+        echo "  --no-data  Deploy cluster without loading data"
         echo "  --help     Show this help"
         exit 0
         ;;
     "")
-        echo -e "${BLUE}📋 Mode: Smart deployment${NC}"
+        echo -e "${BLUE}📋 Mode: Complete deployment with data${NC}"
         ;;
     *)
         echo -e "${RED}❌ Unknown option: $1${NC}"
@@ -91,6 +94,202 @@ check_docker() {
     echo -e "${GREEN}✅ docker-compose.yml found${NC}"
 }
 
+complete_cleanup() {
+    echo -e "\n${RED}🧹 COMPLETE CLEANUP${NC}"
+    
+    # 1. Arrêter tous les conteneurs
+    echo -e "${YELLOW}⏹️ Stopping all containers...${NC}"
+    docker-compose down --remove-orphans -v || true
+    
+    # 2. Supprimer conteneurs orphelins
+    echo -e "${YELLOW}🗑️ Removing orphaned containers...${NC}"
+    docker ps -a --format "{{.Names}}" | grep -E "(namenode|datanode|dashboard|spark|kafka|hive)" | xargs -r docker rm -f || true
+    
+    # 3. Supprimer volumes
+    echo -e "${YELLOW}💾 Removing volumes...${NC}"
+    docker volume ls -q | grep -E "(hadoop|namenode|datanode)" | xargs -r docker volume rm -f || true
+    docker volume rm -f $(docker volume ls -q | grep "adam_hadoop" || true) 2>/dev/null || true
+    
+    # 4. Nettoyage général
+    echo -e "${YELLOW}🧽 General cleanup...${NC}"
+    docker system prune -f
+    docker volume prune -f
+    
+    echo -e "${GREEN}✅ Complete cleanup finished${NC}"
+}
+
+wait_for_service() {
+    local name=$1
+    local url=$2
+    local max_wait=${3:-180}
+    local elapsed=0
+    
+    echo -e "${YELLOW}⏳ Waiting for $name...${NC}"
+    
+    while [[ $elapsed -lt $max_wait ]]; do
+        if curl -f -s --max-time 3 "$url" >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ $name is ready (${elapsed}s)${NC}"
+            return 0
+        fi
+        
+        sleep 5
+        elapsed=$((elapsed + 5))
+        
+        if [[ $((elapsed % 30)) -eq 0 ]]; then
+            echo -e "${BLUE}... still waiting (${elapsed}s/${max_wait}s)${NC}"
+        fi
+    done
+    
+    echo -e "${RED}❌ $name timeout after ${max_wait}s${NC}"
+    return 1
+}
+
+check_datanodes_connection() {
+    echo -e "\n${BLUE}🔍 Checking DataNodes connection...${NC}"
+    
+    local max_attempts=20
+    local attempt=0
+    
+    while [[ $attempt -lt $max_attempts ]]; do
+        local connected_nodes=$(docker exec namenode hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | grep -o '[0-9]\+' | head -1 || echo "0")
+        
+        echo -e "${BLUE}Attempt $((attempt + 1))/$max_attempts: $connected_nodes/2 DataNodes connected${NC}"
+        
+        if [[ "$connected_nodes" -ge "2" ]]; then
+            echo -e "${GREEN}✅ All DataNodes connected successfully!${NC}"
+            return 0
+        fi
+        
+        sleep 10
+        ((attempt++))
+    done
+    
+    echo -e "${YELLOW}⚠️ Only $connected_nodes/2 DataNodes connected after $((max_attempts * 10))s${NC}"
+    echo -e "${YELLOW}💡 Cluster will work but with reduced redundancy${NC}"
+    return 0  # Continue même si tous les DataNodes ne sont pas connectés
+}
+
+deploy_cluster_complete() {
+    echo -e "\n${YELLOW}🏗️ COMPLETE HADOOP DEPLOYMENT${NC}"
+    
+    # 1. Build des images
+    echo -e "\n${YELLOW}📦 Building images...${NC}"
+    docker-compose build --no-cache
+    
+    # 2. Démarrage NameNode en premier
+    echo -e "\n${YELLOW}🖥️ Starting NameNode first...${NC}"
+    docker-compose up -d namenode
+    
+    # 3. Attendre NameNode
+    echo -e "\n${YELLOW}⏳ Waiting for NameNode startup (45s)...${NC}"
+    sleep 45
+    
+    if ! wait_for_service "NameNode" "http://localhost:9870" 120; then
+        echo -e "${RED}❌ NameNode failed to start${NC}"
+        echo -e "${YELLOW}💡 Check logs: docker logs namenode${NC}"
+        return 1
+    fi
+    
+    # 4. Démarrage DataNodes
+    echo -e "\n${YELLOW}📊 Starting DataNodes...${NC}"
+    docker-compose up -d datanode1 datanode2
+    
+    # 5. Attendre DataNodes
+    echo -e "\n${YELLOW}⏳ Waiting for DataNodes startup (60s)...${NC}"
+    sleep 60
+    
+    # Vérifier DataNodes individuellement
+    wait_for_service "DataNode1" "http://localhost:9864" 60 || echo -e "${YELLOW}⚠️ DataNode1 not responding${NC}"
+    wait_for_service "DataNode2" "http://localhost:9865" 60 || echo -e "${YELLOW}⚠️ DataNode2 not responding${NC}"
+    
+    # 6. Vérifier connexion HDFS
+    echo -e "\n${BLUE}🧪 Testing HDFS connectivity...${NC}"
+    if docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ HDFS filesystem accessible${NC}"
+    else
+        echo -e "${RED}❌ HDFS not accessible yet, waiting 30s more...${NC}"
+        sleep 30
+        if docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ HDFS now accessible${NC}"
+        else
+            echo -e "${RED}❌ HDFS still not accessible${NC}"
+            return 1
+        fi
+    fi
+    
+    # 7. Vérifier connexion DataNodes
+    check_datanodes_connection
+    
+    # 8. Démarrer services complémentaires
+    echo -e "\n${YELLOW}🌐 Starting complementary services...${NC}"
+    docker-compose up -d
+    
+    # 9. Attendre stabilisation
+    echo -e "\n${YELLOW}⏳ Cluster stabilization (30s)...${NC}"
+    sleep 30
+    
+    # 10. Services optionnels
+    wait_for_service "Dashboard" "http://localhost:8501" 60 || echo -e "${YELLOW}⚠️ Dashboard not ready yet${NC}"
+    wait_for_service "Spark Master" "http://localhost:8080" 30 || echo -e "${YELLOW}⚠️ Spark not ready yet${NC}"
+    
+    echo -e "\n${GREEN}✅ Hadoop cluster deployment completed!${NC}"
+    return 0
+}
+
+load_data() {
+    if [[ "$SKIP_DATA_LOADER" == "true" ]]; then
+        echo -e "\n${BLUE}📋 Skipping data loading (--no-data flag)${NC}"
+        return 0
+    fi
+    
+    echo -e "\n${BLUE}📥 === DATA LOADING PHASE ===${NC}"
+    
+    # Vérifier que HDFS est prêt
+    echo -e "${YELLOW}🔍 Final HDFS check before data loading...${NC}"
+    if ! docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
+        echo -e "${RED}❌ HDFS not ready for data loading${NC}"
+        return 1
+    fi
+    
+    # Vérifier qu'au moins 1 DataNode est connecté
+    local connected_nodes=$(docker exec namenode hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | grep -o '[0-9]\+' | head -1 || echo "0")
+    if [[ "$connected_nodes" -eq "0" ]]; then
+        echo -e "${RED}❌ No DataNodes connected, cannot load data${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}✅ HDFS ready with $connected_nodes DataNode(s) connected${NC}"
+    
+    # Lancer data-loader
+    echo -e "\n${YELLOW}📦 Running data-loader...${NC}"
+    if docker-compose run --rm data-loader; then
+        echo -e "${GREEN}✅ Data loading completed successfully!${NC}"
+        
+        # Vérifier les données chargées
+        echo -e "\n${BLUE}🔍 Verifying loaded data...${NC}"
+        if docker exec namenode hdfs dfs -ls '/data' >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ Data directory created${NC}"
+            
+            # Afficher structure
+            echo -e "\n${YELLOW}📊 Data structure:${NC}"
+            docker exec namenode hdfs dfs -ls -R '/data' | head -20
+            
+            # Statistiques
+            echo -e "\n${YELLOW}📈 Data statistics:${NC}"
+            docker exec namenode hdfs dfs -du -h '/data/text/existing/' 2>/dev/null || echo "  Text data: checking..."
+            docker exec namenode hdfs dfs -du -h '/data/images/existing/' 2>/dev/null || echo "  Image data: checking..."
+        else
+            echo -e "${YELLOW}⚠️ Data directory not found, but data-loader completed${NC}"
+        fi
+        
+        return 0
+    else
+        echo -e "${RED}❌ Data loading failed${NC}"
+        echo -e "${YELLOW}💡 Check logs: docker logs data-loader${NC}"
+        return 1
+    fi
+}
+
 show_containers() {
     echo -e "\n${BLUE}📊 Container Status:${NC}"
     
@@ -98,25 +297,6 @@ show_containers() {
         return 0
     else
         echo -e "${YELLOW}No Hadoop containers running${NC}"
-        return 1
-    fi
-}
-
-check_service_health() {
-    local name=$1
-    local url=$2
-    local timeout=${3:-5}
-    
-    if command -v curl >/dev/null 2>&1; then
-        if curl -f -s --max-time $timeout "$url" >/dev/null 2>&1; then
-            echo -e "${GREEN}✅ $name${NC}"
-            return 0
-        else
-            echo -e "${RED}❌ $name${NC}"
-            return 1
-        fi
-    else
-        echo -e "${YELLOW}⚠️ $name (curl not available)${NC}"
         return 1
     fi
 }
@@ -139,25 +319,48 @@ show_service_health() {
         local name="${service%%:*}"
         local url="${service#*:}"
         
-        if check_service_health "$name" "$url"; then
+        if curl -f -s --max-time 5 "$url" >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ $name${NC}"
             ((healthy++))
+        else
+            echo -e "${RED}❌ $name${NC}"
         fi
     done
     
     echo -e "\n${BLUE}📈 Health Summary: ${GREEN}$healthy${NC}/${BLUE}$total${NC} services healthy"
     
+    # Vérifier HDFS et DataNodes
+    if [[ $healthy -gt 0 ]]; then
+        echo -e "\n${BLUE}📊 HDFS Status:${NC}"
+        if docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ HDFS accessible${NC}"
+            
+            local connected_nodes=$(docker exec namenode hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | grep -o '[0-9]\+' | head -1 || echo "0")
+            echo -e "${GREEN}📊 DataNodes connected: $connected_nodes/2${NC}"
+            
+            if docker exec namenode hdfs dfs -ls '/data' >/dev/null 2>&1; then
+                echo -e "${GREEN}✅ Data loaded in HDFS${NC}"
+            else
+                echo -e "${YELLOW}⚠️ No data in HDFS${NC}"
+            fi
+        else
+            echo -e "${RED}❌ HDFS not accessible${NC}"
+        fi
+    fi
+    
     if [[ $healthy -eq $total ]]; then
-        echo -e "${GREEN}🎉 All services are healthy!${NC}"
+        echo -e "\n${GREEN}🎉 All services are healthy!${NC}"
         return 0
     elif [[ $healthy -gt 0 ]]; then
-        echo -e "${YELLOW}⚠️ Some services need attention${NC}"
+        echo -e "\n${YELLOW}⚠️ Some services need attention${NC}"
         return 1
     else
-        echo -e "${RED}❌ No services responding${NC}"
+        echo -e "\n${RED}❌ No services responding${NC}"
         return 2
     fi
 }
 
+<<<<<<< Updated upstream
 wait_for_service() {
     local name=$1
     local url=$2
@@ -285,6 +488,8 @@ deploy_cluster() {
     return 0
 }
 
+=======
+>>>>>>> Stashed changes
 show_access_info() {
     echo -e "\n${BLUE}📊 Access Information:${NC}"
     echo -e "${GREEN}• NameNode Web UI: http://localhost:9870${NC}"
@@ -292,14 +497,14 @@ show_access_info() {
     echo -e "${GREEN}• DataNode2 Web UI: http://localhost:9865${NC}"
     echo -e "${GREEN}• Streamlit Dashboard: http://localhost:8501${NC}"
     echo -e "${GREEN}• Spark Master UI: http://localhost:8080${NC}"
-    echo -e "${GREEN}• Kafka (internal): localhost:9092${NC}"
     
     echo -e "\n${YELLOW}💡 Useful commands:${NC}"
-    echo -e "  $0 --status     # Check cluster health"
-    echo -e "  $0 --clean      # Clean restart"
-    echo -e "  $0 --fix-hive   # Fix Hive issues"
+    echo -e "  $0 --status        # Check cluster health"
+    echo -e "  $0 --clean         # Clean restart with data"
+    echo -e "  $0 --fresh         # Complete reset"
+    echo -e "  $0 --no-data       # Deploy without data loading"
+    echo -e "  docker exec namenode hdfs dfs -ls '/data'  # Browse HDFS data"
     echo -e "  docker-compose logs [service]  # View logs"
-    echo -e "  docker exec namenode hdfs dfs -ls /  # Browse HDFS"
 }
 
 # ============ LOGIQUE PRINCIPALE ============
@@ -310,31 +515,29 @@ case $ACTION in
     "status")
         show_containers
         show_service_health
-        if docker ps --format "{{.Names}}" | grep -q "namenode"; then
-            test_hdfs
-        fi
         show_access_info
         ;;
         
     "clean")
-        echo -e "\n${YELLOW}🧹 Stopping containers...${NC}"
-        docker-compose down --remove-orphans || true
-        echo -e "${GREEN}✅ Containers stopped${NC}"
-        
-        deploy_cluster
+        echo -e "\n${YELLOW}🧹 Clean restart with complete deployment...${NC}"
+        complete_cleanup
+        if deploy_cluster_complete; then
+            load_data
+        else
+            echo -e "${RED}❌ Cluster deployment failed${NC}"
+            exit 1
+        fi
         ;;
         
     "fresh")
-        echo -e "\n${RED}🧹 Fresh deployment - cleaning everything...${NC}"
-        docker-compose down -v --remove-orphans || true
-        docker volume prune -f || true
-        echo -e "${GREEN}✅ Clean slate ready${NC}"
-        
-        deploy_cluster
-        ;;
-        
-    "fix-hive")
-        fix_hive
+        echo -e "\n${RED}🧹 Fresh deployment - complete reset...${NC}"
+        complete_cleanup
+        if deploy_cluster_complete; then
+            load_data
+        else
+            echo -e "${RED}❌ Fresh deployment failed${NC}"
+            exit 1
+        fi
         ;;
         
     "deploy")
@@ -345,14 +548,26 @@ case $ACTION in
             
             if show_service_health; then
                 echo -e "\n${GREEN}🎉 Cluster is healthy and ready!${NC}"
+                
+                # Vérifier si données présentes
+                if docker exec namenode hdfs dfs -ls '/data' >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ Data already loaded${NC}"
+                else
+                    echo -e "${YELLOW}📥 No data found, loading...${NC}"
+                    load_data
+                fi
             else
                 echo -e "\n${YELLOW}⚠️ Some services have issues${NC}"
                 echo -e "${YELLOW}💡 Try: $0 --clean for a restart${NC}"
-                echo -e "${YELLOW}💡 Try: $0 --fix-hive if Hive issues${NC}"
             fi
         else
-            echo -e "\n${YELLOW}📋 No containers running, starting cluster...${NC}"
-            deploy_cluster
+            echo -e "\n${YELLOW}📋 No containers running, starting complete deployment...${NC}"
+            if deploy_cluster_complete; then
+                load_data
+            else
+                echo -e "${RED}❌ Deployment failed${NC}"
+                exit 1
+            fi
         fi
         ;;
 esac
@@ -364,10 +579,10 @@ echo -e "\n${GREEN}✅ Operation completed!${NC}"
 if [[ $ACTION != "status" ]] && docker ps --format "{{.Names}}" | grep -q "namenode"; then
     show_service_health
     show_access_info
+    
+    echo -e "\n${BLUE}🎯 Next steps:${NC}"
+    echo -e "  • Visit http://localhost:9870 to browse HDFS"
+    echo -e "  • Visit http://localhost:8501 for the dashboard"
+    echo -e "  • Run '$0 --status' anytime to check health"
+    echo -e "\n${GREEN}🚀 Your Hadoop cluster with data is ready for the presentation!${NC}"
 fi
-
-echo -e "\n${BLUE}🎯 Next steps:${NC}"
-echo -e "  • Visit http://localhost:9870 to see HDFS"
-echo -e "  • Visit http://localhost:8501 for the dashboard"
-echo -e "  • Run '$0 --status' anytime to check health"
-echo -e "  • Run '$0 --fix-hive' if Hive has issues"
