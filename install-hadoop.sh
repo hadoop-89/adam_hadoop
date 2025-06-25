@@ -1,8 +1,8 @@
 #!/bin/bash
 
-echo "🚀 Installation d'Hadoop et SSH en cours..."
+echo "🚀 Hadoop and SSH installation in progress..."
 
-# 🔹 Mettre à jour les paquets et installer les dépendances nécessaires
+# 🔹 Update packages and install necessary dependencies
 apt update && apt install -y \
     openjdk-8-jdk \
     openssh-server \
@@ -13,7 +13,7 @@ apt update && apt install -y \
     curl \
     sudo
 
-# 🔹 Définir les variables d’environnement globales JAVA et Hadoop
+# 🔹 Set global environment variables for JAVA and Hadoop
 cat <<EOF > /etc/profile.d/hadoop.sh
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 export HADOOP_HOME=/usr/local/hadoop
@@ -23,23 +23,23 @@ EOF
 
 source /etc/profile.d/hadoop.sh
 
-# 🔹 Télécharger et installer Hadoop
+# 🔹 Download and install Hadoop
 HADOOP_VERSION="3.3.6"
 wget https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz
 tar -xvzf hadoop-${HADOOP_VERSION}.tar.gz
 mv hadoop-${HADOOP_VERSION} /usr/local/hadoop
 rm hadoop-${HADOOP_VERSION}.tar.gz
 
-# 🔹 Créer les dossiers pour HDFS
+# 🔹 Create directories for HDFS
 mkdir -p $HADOOP_HOME/data/namenode
 mkdir -p $HADOOP_HOME/data/datanode
 
-# 🔹 Configurer SSH pour accès sans mot de passe
+# 🔹 Configure SSH for passwordless access
 mkdir -p /run/sshd
 mkdir -p ~/.ssh
 ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
 
-# 🔹 Copier les clés SSH vers datanodes (méthode sûre)
+# 🔹 Copy SSH keys to datanodes (secure method)
 PUBKEY=$(cat ~/.ssh/id_rsa.pub)
 for node in datanode1 datanode2; do
     sshpass -p "hadoop" ssh -o StrictHostKeyChecking=no hadoop@$node "
@@ -49,12 +49,12 @@ for node in datanode1 datanode2; do
         chmod 600 ~/.ssh/authorized_keys"
 done
 
-# 🔹 Formatage et démarrage HDFS uniquement sur le Namenode
+# 🔹 Format and start HDFS only on the NameNode
 if [ "$(hostname)" == "namenode" ]; then
-    echo "🟢 Formatage du Namenode..."
+    echo "🟢 Formatting NameNode..."
     hdfs namenode -format -force
-    echo "🟢 Démarrage du cluster HDFS..."
+    echo "🟢 Starting HDFS cluster..."
     start-dfs.sh
 fi
 
-echo "✅ Installation et configuration terminées ! 🚀"
+echo "✅ Installation and configuration completed! 🚀"

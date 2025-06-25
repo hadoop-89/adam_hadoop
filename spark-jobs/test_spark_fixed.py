@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
 """
-Script de test simplifié pour vérifier Spark (version alternative)
+Simplified test script to verify Spark (alternative version)
 """
 
 def test_basic_functionality():
-    """Test basique sans SparkSession pour éviter les problèmes Java"""
-    
-    print("🚀 === TEST FONCTIONNALITÉS DE BASE ===")
-    
-    # Test 1: Prétraitement de texte (logique qu'on utilisera)
-    print("🔧 Test prétraitement texte...")
-    
+    """Basic test without SparkSession to avoid Java issues"""
+
+    print("🚀 === BASIC FUNCTIONALITY TEST ===")
+
+    # Test 1: Text preprocessing (logic we'll use)
+    print("🔧 Testing text preprocessing...")
+    text = "Sample text for preprocessing"
+    cleaned = clean_text(text)
+    print(f"✅ Cleaned text: {cleaned}")
+
     import re
     
     def clean_text(text):
-        """Fonction de nettoyage comme dans le vrai pipeline"""
+        """Function to clean text as in the real pipeline"""
         if not text:
             return ""
-        
-        # Enlever les URLs
+
+        # Remove URLs
         text = re.sub(r'http\S+|www\.\S+', '', text)
-        
-        # Enlever les caractères spéciaux
+
+        # Remove special characters
         text = re.sub(r'[^\w\s\.]', ' ', text)
-        
-        # Enlever les espaces multiples
+
+        # Remove multiple spaces
         text = ' '.join(text.split())
         
         return text.lower().strip()
     
     def tokenize_simple(text):
-        """Tokenisation simple"""
+        """Simple tokenization (split by spaces)"""
         return text.split()
-    
-    # Test avec des données d'exemple
+
+    # Test with example data
     test_articles = [
         "Breaking: New AI Technology Revolutionizes Healthcare https://example.com/1",
         "Python 3.12 Released with Amazing Features!",
@@ -55,41 +58,41 @@ def test_basic_functionality():
             'word_count': len(tokens),
             'ready_for_ia': len(tokens) >= 3
         })
-    
-    print("✅ Prétraitement terminé")
-    
-    # Afficher les résultats
-    print("\n📊 === RÉSULTATS DU PRÉTRAITEMENT ===")
+
+    print("✅ Preprocessing complete")
+
+    # Show results
+    print("\n📊 === PREPROCESSING RESULTS ===")
     for article in processed_articles:
         print(f"ID: {article['id']}")
         print(f"Original: {article['original'][:50]}...")
-        print(f"Nettoyé: {article['cleaned']}")
-        print(f"Mots: {article['word_count']}, Prêt pour IA: {article['ready_for_ia']}")
+        print(f"Cleaned: {article['cleaned']}")
+        print(f"Words: {article['word_count']}, Ready for IA: {article['ready_for_ia']}")
         print("-" * 60)
-    
-    # Statistiques
+
+    # Statistics
     total = len(processed_articles)
     ready_for_ia = sum(1 for a in processed_articles if a['ready_for_ia'])
     avg_words = sum(a['word_count'] for a in processed_articles) / total
-    
-    print(f"\n📈 === STATISTIQUES ===")
+
+    print(f"\n📈 === STATISTICS ===")
     print(f"Total articles: {total}")
-    print(f"Prêts pour IA: {ready_for_ia}")
-    print(f"Longueur moyenne: {avg_words:.1f} mots")
-    
-    print("\n✅ === TEST PRÉTRAITEMENT RÉUSSI ===")
-    print("✅ Logique de nettoyage fonctionne")
-    print("✅ Tokenisation fonctionne") 
-    print("✅ Filtrage qualité fonctionne")
-    print("✅ Pipeline prêt pour Spark")
-    
+    print(f"Ready for IA: {ready_for_ia}")
+    print(f"Average length: {avg_words:.1f} words")
+
+    print("\n✅ === TEST PREPROCESSING SUCCESS ===")
+    print("✅ Text cleaning works")
+    print("✅ Tokenization works")
+    print("✅ Quality filtering works")
+    print("✅ Pipeline ready for Spark")
+    print("🎉 Congratulations! Basic functionality test passed.")
     return True
 
 if __name__ == "__main__":
     try:
         success = test_basic_functionality()
-        print(f"\n🎉 Test terminé avec succès: {success}")
+        print(f"\n🎉 Test terminated successfully: {success}")
     except Exception as e:
-        print(f"❌ Erreur: {e}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()

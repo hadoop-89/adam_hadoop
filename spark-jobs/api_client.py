@@ -5,13 +5,13 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 
 # Configuration
-IA_API_URL = "http://ai-api-unified:8001"  # Nom du conteneur IA
+IA_API_URL = "http://ai-api-unified:8001"  # AI Container Name
 BATCH_SIZE = 10
 
 def send_to_ia_api(data):
-    """Envoyer les données à l'API IA"""
+    """Send data to the AI API"""
     try:
-        # Endpoint selon le type de données
+        # Endpoint based on data type
         if data.get('type') == 'text':
             endpoint = f"{IA_API_URL}/analyze-text"
         else:
@@ -26,23 +26,23 @@ def send_to_ia_api(data):
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"❌ Erreur API: {response.status_code}")
+            print(f"❌ API error: {response.status_code}")
             return None
             
     except Exception as e:
-        print(f"❌ Erreur connexion API: {e}")
+        print(f"❌ API connection error: {e}")
         return None
 
 def process_hdfs_data():
-    """Lire depuis HDFS et envoyer à l'API"""
+    """Read from HDFS and send to the API"""
     spark = SparkSession.builder \
         .appName("HDFStoAPIProcessor") \
         .getOrCreate()
-    
-    # Lire les données depuis HDFS
+
+    # Read data from HDFS
     df = spark.read.parquet("hdfs://namenode:9000/data/streaming/news")
-    
-    # Traiter par batch
+
+    # Process in batches
     data_collect = df.collect()
     
     results = []
@@ -50,7 +50,7 @@ def process_hdfs_data():
         batch = data_collect[i:i+BATCH_SIZE]
         
         for row in batch:
-            # Préparer les données
+            # Prepare data
             data = {
                 'id': row['id'],
                 'type': 'text',
@@ -60,8 +60,8 @@ def process_hdfs_data():
                     'timestamp': row['timestamp']
                 }
             }
-            
-            # Envoyer à l'API
+
+            # Send to API
             result = send_to_ia_api(data)
             
             if result:
@@ -70,14 +70,14 @@ def process_hdfs_data():
                     'analysis': result,
                     'processed_at': datetime.now().isoformat()
                 })
-    
-    # Sauvegarder les résultats dans HDFS
+
+    # Save results to HDFS
     results_df = spark.createDataFrame(results)
     results_df.write \
         .mode("append") \
         .parquet("hdfs://namenode:9000/data/ia_results")
-    
-    print(f"✅ Traité {len(results)} éléments")
+
+    print(f"✅ Processed {len(results)} items and saved to HDFS.")
 
 if __name__ == "__main__":
     process_hdfs_data()

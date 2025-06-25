@@ -6,13 +6,13 @@ import numpy as np
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Permettre les requêtes cross-origin
+CORS(app)  # Allow cross-origin requests
 
-# Charger le modèle YOLOv8
-MODEL_PATH = "yolov8n.pt"  # Assurez-vous d'avoir téléchargé ce fichier
+# Load YOLOv8 model
+MODEL_PATH = "yolov8n.pt"  # Make sure to download this file
 model = YOLO(MODEL_PATH)
 
-# Page d'accueil avec une interface simple
+# Home page with a simple interface
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="fr">
@@ -64,7 +64,7 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Vérifier si une image a bien été envoyée
+        # Check if an image has been uploaded
         if 'image' not in request.files:
             return jsonify({'error': 'No image uploaded'}), 400
 
@@ -75,7 +75,7 @@ def predict():
         if image is None:
             return jsonify({'error': 'Invalid image file'}), 400
 
-        # Exécuter l'inférence YOLO
+        # Run YOLO inference
         results = model(image)
 
         detections = []

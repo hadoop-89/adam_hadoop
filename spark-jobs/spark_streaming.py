@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test réel Spark + HDFS avec prétraitement intégré
+Real Spark + HDFS test with built-in preprocessing
 """
 
 from pyspark.sql import SparkSession
@@ -9,19 +9,19 @@ from pyspark.sql.types import *
 import re
 
 def main():
-    print("🚀 === TEST SPARK + HDFS + PRÉTRAITEMENT ===")
+    print("🚀 === SPARK TEST + HDFS + PREPROCESSING ===")
     
     try:
-        # Créer session Spark avec configuration HDFS
+        # Create Spark session with HDFS configuration
         spark = SparkSession.builder \
             .appName("TestSparkHDFS") \
             .config("spark.sql.adaptive.enabled", "false") \
             .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
             .getOrCreate()
-        
-        print("✅ Session Spark créée avec connexion HDFS")
-        
-        # Données de test (simulant des articles scrapés)
+
+        print("✅ Spark session created with HDFS connection")
+
+        # Test data (simulating scraped articles)
         test_data = [
             ("1", "Breaking: New AI Technology Revolutionizes Healthcare https://example.com", "2025-06-22T20:00:00", "hackernews"),
             ("2", "Python 3.12 Released with Amazing Features!", "2025-06-22T20:01:00", "techcrunch"),
@@ -37,30 +37,30 @@ def main():
             StructField("source", StringType())
         ])
         
-        # Créer DataFrame
+        # Create DataFrame
         df = spark.createDataFrame(test_data, schema)
-        print(f"✅ DataFrame créé avec {df.count()} articles")
+        print(f"✅ DataFrame created with {df.count()} articles")
         
-        # === PRÉTRAITEMENT AVANCÉ ===
-        print("🔧 Application du prétraitement...")
+        # === ADVANCED PREPROCESSING ===
+        print("🔧 Applying preprocessing...")
         
-        # UDF pour nettoyage de texte
+        # UDF for text cleaning
         def clean_text_udf():
             def clean_text(text):
                 if not text:
                     return ""
-                # Enlever URLs
+                # Remove URLs
                 text = re.sub(r'http\S+|www\.\S+', '', text)
-                # Enlever caractères spéciaux
+                # Remove special characters
                 text = re.sub(r'[^\w\s]', ' ', text)
-                # Enlever espaces multiples
+                # Remove multiple spaces
                 text = ' '.join(text.split())
                 return text.lower().strip()
             return udf(clean_text, StringType())
         
         clean_text_func = clean_text_udf()
-        
-        # Appliquer le prétraitement
+
+        # Apply preprocessing
         processed_df = df \
             .withColumn("title_original", col("title")) \
             .withColumn("title_cleaned", clean_text_func(col("title"))) \
@@ -70,24 +70,24 @@ def main():
             .withColumn("data_type", lit("text")) \
             .withColumn("ready_for_ia", when(col("word_count") >= 3, True).otherwise(False)) \
             .filter(col("ready_for_ia") == True)
-        
-        print("✅ Prétraitement appliqué")
-        
-        # Afficher les résultats
-        print("\n📊 === RÉSULTATS SPARK ===")
+
+        print("✅ Preprocessing applied")
+
+        # Show results
+        print("\n📊 === SPARK RESULTS ===")
         processed_df.select("id", "title_original", "title_cleaned", "word_count", "ready_for_ia").show(truncate=False)
-        
-        # === TEST SAUVEGARDE HDFS ===
-        print("💾 Test sauvegarde HDFS...")
-        
-        # Sauvegarder les données prétraitées
+
+        # === HDFS SAVE TEST ===
+        print("💾 HDFS save test...")
+
+        # Save preprocessed data
         processed_df.write \
             .mode("overwrite") \
             .parquet("hdfs://namenode:9000/data/test/news_preprocessed")
-        
-        print("✅ Sauvegarde HDFS réussie!")
-        
-        # Préparer données pour API IA
+
+        print("✅ HDFS save successful!")
+
+        # Prepare data for AI API
         api_ready_df = processed_df.select(
             col("id"),
             col("data_type"),
@@ -99,49 +99,49 @@ def main():
                 col("processed_time")
             ).alias("metadata")
         )
-        
-        # Sauvegarder queue API
+
+        # Save API queue
         api_ready_df.write \
             .mode("overwrite") \
             .parquet("hdfs://namenode:9000/data/test/api_queue")
-        
-        print("✅ Queue API IA créée!")
-        
-        # === VÉRIFICATION LECTURE HDFS ===
-        print("🔍 Test lecture depuis HDFS...")
-        
+
+        print("✅ AI API queue created!")
+
+        # === HDFS READ TEST ===
+        print("🔍 HDFS read test...")
+       
         read_df = spark.read.parquet("hdfs://namenode:9000/data/test/news_preprocessed")
         read_count = read_df.count()
-        
-        print(f"✅ Lecture HDFS OK - {read_count} articles récupérés")
-        
-        # === STATISTIQUES ===
+
+        print(f"✅ HDFS read OK - {read_count} articles retrieved")
+
+        # === STATISTICS ===
         stats = processed_df.agg(
             count("*").alias("total"),
             avg("word_count").alias("avg_words"),
             max("word_count").alias("max_words"),
             countDistinct("source").alias("sources")
         ).collect()[0]
-        
-        print(f"\n📈 === STATISTIQUES FINALES ===")
+
+        print(f"\n📈 === FINAL STATISTICS ===")
         print(f"Total articles traités: {stats['total']}")
         print(f"Longueur moyenne: {stats['avg_words']:.1f} mots")
         print(f"Longueur maximale: {stats['max_words']} mots") 
         print(f"Sources différentes: {stats['sources']}")
         
         spark.stop()
-        
-        print("\n🎉 === TOUS LES TESTS RÉUSSIS ===")
-        print("✅ Spark fonctionne")
-        print("✅ HDFS connecté")
-        print("✅ Prétraitement intégré")
-        print("✅ Sauvegarde/lecture HDFS")
-        print("✅ Données prêtes pour API IA")
-        
+
+        print("\n🎉 === ALL TESTS PASSED ===")
+        print("✅ Spark is working")
+        print("✅ HDFS connected")
+        print("✅ Preprocessing integrated")
+        print("✅ Save/read HDFS")
+        print("✅ Data ready for AI API")
+
         return True
         
     except Exception as e:
-        print(f"❌ ERREUR: {e}")
+        print(f"❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
         return False

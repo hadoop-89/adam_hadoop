@@ -5,11 +5,11 @@ import json
 from datetime import datetime
 
 def test_ia_api_from_spark():
-    """Test simple de l'API IA depuis l'environnement Spark"""
+    """Simple AI API Testing from Spark Environment"""
     
-    print("🚀 === TEST INTÉGRATION HADOOP ↔ IA ===")
+    print("🚀 === HADOOP ↔ AI INTEGRATION TEST ===")
     
-    # URL de l'API IA (accessible depuis le réseau Hadoop)
+    # AI API URL (accessible from the Hadoop network)
     ia_api_url = "http://ai-api-unified:8001"
     
     try:
@@ -18,14 +18,14 @@ def test_ia_api_from_spark():
         response = requests.get(f"{ia_api_url}/health", timeout=10)
         
         if response.status_code == 200:
-            print("✅ API IA accessible depuis Spark")
-            print(f"   Réponse: {response.json()}")
+            print("✅ AI API accessible from Spark")
+            print(f"   Response: {response.json()}")
         else:
-            print(f"❌ Erreur health check: {response.status_code}")
+            print(f"❌ Error health check: {response.status_code}")
             return False
-        
-        # Test 2: Analyse de sentiment
-        print("\n📝 Test 2: Analyse de sentiment")
+
+        # Test 2: Sentiment analysis
+        print("\n📝 Test 2: Sentiment Analysis")
         text_data = {
             "data_type": "text",
             "content": "This Hadoop and AI integration is working amazingly well!",
@@ -51,9 +51,9 @@ def test_ia_api_from_spark():
             print(f"❌ Erreur analyse sentiment: {response.status_code}")
             print(f"   Détails: {response.text}")
             return False
-        
-        # Test 3: Analyse d'image
-        print("\n🖼️ Test 3: Analyse d'image")
+
+        # Test 3: Image analysis
+        print("\n🖼️ Test 3: Image Analysis")
         image_data = {
             "data_type": "image",
             "content": "dGVzdA==",  # base64 simple
@@ -72,16 +72,16 @@ def test_ia_api_from_spark():
         
         if response.status_code == 200:
             result = response.json()
-            print("✅ Analyse d'image réussie")
+            print("✅ Image analysis successful")
             objects_count = result['result']['object_detection']['objects_count']
-            print(f"   Objets détectés: {objects_count}")
+            print(f"   Objects detected: {objects_count}")
         else:
-            print(f"❌ Erreur analyse image: {response.status_code}")
-            print(f"   Détails: {response.text}")
+            print(f"❌ Error image analysis: {response.status_code}")
+            print(f"   DDetails: {response.text}")
             return False
-        
-        # Test 4: Traitement par batch
-        print("\n📦 Test 4: Traitement par batch")
+
+        # Test 4: Batch processing
+        print("\n📦 Test 4: Batch Processing")
         batch_data = [
             {
                 "data_type": "text",
@@ -113,12 +113,12 @@ def test_ia_api_from_spark():
             result = response.json()
             total_processed = result['total_processed']
             successful = sum(1 for r in result['batch_results'] if r['status'] == 'success')
-            
-            print("✅ Traitement par batch réussi")
-            print(f"   Total traité: {total_processed}")
-            print(f"   Succès: {successful}/{total_processed}")
-            
-            # Afficher quelques résultats
+
+            print("✅ Batch processing successful")
+            print(f"   Total processed: {total_processed}")
+            print(f"   Success: {successful}/{total_processed}")
+
+            # Show some results
             for i, res in enumerate(result['batch_results'][:2]):
                 if res['status'] == 'success':
                     if 'sentiment' in res['result']:
@@ -128,32 +128,32 @@ def test_ia_api_from_spark():
                         category = res['result']['classification']['category']
                         print(f"   Item {i+1}: {category}")
         else:
-            print(f"❌ Erreur batch: {response.status_code}")
+            print(f"❌ Error batch: {response.status_code}")
             return False
-        
-        print("\n🎉 === TOUS LES TESTS RÉUSSIS ===")
-        print("✅ Communication Hadoop ↔ IA opérationnelle")
-        print("✅ Analyse de sentiment fonctionnelle")
-        print("✅ Détection d'objets fonctionnelle") 
-        print("✅ Traitement par batch opérationnel")
-        print("✅ Pipeline prêt pour traitement de données")
-        
+
+        print("\n🎉 === ALL TESTS PASSED ===")
+        print("✅ Hadoop ↔ AI communication operational")
+        print("✅ Sentiment analysis functional")
+        print("✅ Object detection functional")
+        print("✅ Batch processing operational")
+        print("✅ Pipeline ready for data processing")
+
         return True
         
     except requests.RequestException as e:
-        print(f"❌ Erreur de connexion: {e}")
+        print(f"❌ Connection error: {e}")
         return False
     except Exception as e:
-        print(f"❌ Erreur inattendue: {e}")
+        print(f"❌ Unexpected error: {e}")
         return False
 
 if __name__ == "__main__":
     success = test_ia_api_from_spark()
     
     if success:
-        print("\n🚀 Intégration Hadoop ↔ IA validée avec succès!")
-        print("📋 Prêt pour le traitement de données en production")
+        print("\n🚀 Hadoop ↔ AI integration validated successfully!")
+        print("📋 Ready for production data processing")
     else:
-        print("\n❌ Échec de l'intégration")
-    
+        print("\n❌ Integration failed")
+
     exit(0 if success else 1)

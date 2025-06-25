@@ -48,8 +48,8 @@ This project implements a production-ready Hadoop ecosystem that includes:
 ### 1. Clone and Deploy
 
 ```bash
-git clone https://github.com/hadoop-89/hadoop-cluster.git
-cd hadoop-cluster
+git clone https://github.com/hadoop-89/adam_hadoop.git
+cd adam_hadoop
 
 # Deploy complete cluster
 ./scripts/deploy.sh

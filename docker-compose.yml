@@ -157,7 +157,7 @@ services:
       - hadoop-net
     restart: unless-stopped
 
-  # === DATA LOADER (optionnel) ===
+  # === DATA LOADER (optional) ===
   data-loader:
     build:
       context: ./data-loader
@@ -168,13 +168,13 @@ services:
     restart: "no"
     environment:
       - HDFS_NAMENODE=namenode:9000
-      - SERVER_PID=""  # Ajouter cette ligne pour éviter le warning
+      - SERVER_PID=""  # Add this line to avoid the warning
     depends_on:
       - namenode
       - datanode1
       - datanode2
 
-  # === HIVE SERVICES (VERSION CORRIGÉE) ===
+  # === HIVE SERVICES (CORRECTED VERSION) ===
   hive-metastore:
     image: apache/hive:3.1.3
     container_name: hive-metastore

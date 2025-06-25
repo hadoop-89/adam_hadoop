@@ -1,6 +1,6 @@
 #!/bin/bash
-# Script de vérification FINAL pour Git Bash Windows
-# Solution: Utiliser winpty et échapper les chemins
+# FINAL verification script for Git Bash Windows
+# Solution: Use winpty and escape paths
 
 set -e
 
@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}🔍 === VÉRIFICATION CLUSTER HADOOP (Git Bash Final) ===${NC}"
+echo -e "${BLUE}🔍 === HADOOP CLUSTER VERIFICATION (Git Bash Final) ===${NC}"
 
 TOTAL_TESTS=0
 PASSED_TESTS=0
@@ -56,11 +56,11 @@ run_test_with_output() {
 
 echo -e "\n${BLUE}=== PHASE 1: INFRASTRUCTURE ===${NC}"
 
-# Test conteneurs
-run_test "Conteneurs Hadoop actifs" \
+# Test containers
+run_test "Active Hadoop containers" \
     "docker ps --format '{{.Names}}' | grep -E '(namenode|datanode1|datanode2)' | wc -l | grep -q '[3-9]'"
 
-# Test services web
+# Test web services
 run_test "NameNode Web UI" \
     "curl -f -s --max-time 5 http://localhost:9870"
 
@@ -72,104 +72,104 @@ run_test "Dashboard" \
 
 echo -e "\n${BLUE}=== PHASE 2: HDFS (Solution Git Bash) ===${NC}"
 
-# SOLUTION FINALE: Utiliser des variables pour échapper les chemins
+# FINAL SOLUTION: Use variables to escape paths
 HDFS_ROOT="/"
 DATA_PATH="/data"
 TEXT_PATH="/data/text"
 IMAGE_PATH="/data/images"
 
-# Test HDFS avec échappement de chemins
+# Test HDFS with path escaping
 run_test "NameNode HDFS root accessible" \
     "docker exec namenode hdfs dfs -ls '$HDFS_ROOT' | grep -q 'data'"
 
 run_test "Structure /data existe" \
     "docker exec namenode hdfs dfs -ls '$DATA_PATH' | grep -q 'text'"
 
-run_test "Répertoire text/existing existe" \
+run_test "Repertoire text/existing existe" \
     "docker exec namenode hdfs dfs -ls '$TEXT_PATH/existing' | grep -q '.csv'"
 
-run_test "Répertoire images/existing existe" \
+run_test "RRepertoire images/existing existe" \
     "docker exec namenode hdfs dfs -ls '$IMAGE_PATH/existing' | grep -q '.csv'"
 
-echo -e "\n${BLUE}=== PHASE 3: VALIDATION DES DONNÉES ===${NC}"
+echo -e "\n${BLUE}=== PHASE 3: DATA VALIDATION ===${NC}"
 
-# Test des fichiers avec vérification du contenu
-run_test "Reviews Amazon présentes" \
+# Test the files with content verification
+run_test "Amazon reviews present" \
     "docker exec namenode hdfs dfs -ls '$TEXT_PATH/existing/' | grep -q 'amazon_reviews.csv'"
 
-run_test "Métadonnées images présentes" \
+run_test "Image metadata present" \
     "docker exec namenode hdfs dfs -ls '$IMAGE_PATH/existing/' | grep -q 'metadata.csv'"
 
-run_test "Contenu reviews valide" \
+run_test "Reviews content valid" \
     "docker exec namenode hdfs dfs -cat '$TEXT_PATH/existing/amazon_reviews.csv' | head -1 | grep -q 'ProductId'"
 
-echo -e "\n${BLUE}=== AFFICHAGE DES DONNÉES ===${NC}"
+echo -e "\n${BLUE}=== DATA DISPLAY ===${NC}"
 
-# Affichages avec échappement sûr
-echo -e "${YELLOW}📊 Structure HDFS complète:${NC}"
-docker exec namenode hdfs dfs -ls -R "$DATA_PATH" 2>/dev/null | head -20 || echo "Erreur affichage structure"
+# Show the structure
+echo -e "${YELLOW}📊 Complete HDFS structure:${NC}"
+docker exec namenode hdfs dfs -ls -R "$DATA_PATH" 2>/dev/null | head -20 || echo "Error displaying structure"
 
-echo -e "\n${YELLOW}📝 Statistiques des données:${NC}"
+echo -e "\n${YELLOW}📝 Data statistics:${NC}"
 
-# Compter les lignes de façon sûre
-echo -e "${GREEN}Données texte:${NC}"
+# Count the lines safely
+echo -e "${GREEN}Text data:${NC}"
 REVIEW_COUNT=$(docker exec namenode hdfs dfs -cat "$TEXT_PATH/existing/amazon_reviews.csv" 2>/dev/null | wc -l || echo "0")
-echo -e "  Reviews: $REVIEW_COUNT lignes"
+echo -e "  Reviews: $REVIEW_COUNT lines"
 
-echo -e "${GREEN}Taille des fichiers:${NC}"
-docker exec namenode hdfs dfs -du -h "$TEXT_PATH/existing/" 2>/dev/null || echo "  Erreur taille texte"
-docker exec namenode hdfs dfs -du -h "$IMAGE_PATH/existing/" 2>/dev/null || echo "  Erreur taille images"
+echo -e "${GREEN}File sizes:${NC}"
+docker exec namenode hdfs dfs -du -h "$TEXT_PATH/existing/" 2>/dev/null || echo "  Error getting text size"
+docker exec namenode hdfs dfs -du -h "$IMAGE_PATH/existing/" 2>/dev/null || echo "  Error getting image size"
 
-echo -e "\n${YELLOW}📄 Échantillon de données:${NC}"
+echo -e "\n${YELLOW}📄 Data sample:${NC}"
 echo -e "${GREEN}Header reviews:${NC}"
-docker exec namenode hdfs dfs -cat "$TEXT_PATH/existing/amazon_reviews.csv" 2>/dev/null | head -1 || echo "  Erreur lecture reviews"
+docker exec namenode hdfs dfs -cat "$TEXT_PATH/existing/amazon_reviews.csv" 2>/dev/null | head -1 || echo "  Error reading reviews"
 
 echo -e "${GREEN}Header images:${NC}"
-docker exec namenode hdfs dfs -cat "$IMAGE_PATH/existing/intel_images_metadata.csv" 2>/dev/null | head -1 || echo "  Erreur lecture images"
+docker exec namenode hdfs dfs -cat "$IMAGE_PATH/existing/intel_images_metadata.csv" 2>/dev/null | head -1 || echo "  Error reading images"
 
-# Test final de connectivité HDFS
-echo -e "\n${YELLOW}🔧 Test connectivité HDFS:${NC}"
+# Final HDFS Connectivity Test
+echo -e "\n${YELLOW}🔧 HDFS Connectivity Test:${NC}"
 if docker exec namenode hdfs dfs -ls "$HDFS_ROOT" >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ HDFS parfaitement accessible${NC}"
+    echo -e "${GREEN}✅ HDFS perfectly accessible${NC}"
 else
-    echo -e "${RED}❌ Problème HDFS${NC}"
+    echo -e "${RED}❌ HDFS problem${NC}"
 fi
 
-# Résultats finaux
+# Final results
 PERCENTAGE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
 
-echo -e "\n${BLUE}🎯 === RÉSULTATS FINAUX ===${NC}"
-echo -e "${BLUE}Score: ${GREEN}$PASSED_TESTS${NC}/${BLUE}$TOTAL_TESTS${NC} tests réussis (${GREEN}$PERCENTAGE%${NC})"
+echo -e "\n${BLUE}🎯 === FINAL RESULTS ===${NC}"
+echo -e "${BLUE}Score: ${GREEN}$PASSED_TESTS${NC}/${BLUE}$TOTAL_TESTS${NC} tests passed (${GREEN}$PERCENTAGE%${NC})"
 
 if [[ $PERCENTAGE -ge 85 ]]; then
-    echo -e "\n${GREEN}🎉 EXCELLENT! Cluster Hadoop parfaitement opérationnel!${NC}"
-    echo -e "${GREEN}✅ Toute l'infrastructure fonctionne${NC}"
-    echo -e "${GREEN}✅ Données Amazon (300MB+) chargées${NC}"
-    echo -e "${GREEN}✅ Métadonnées images présentes${NC}"
-    echo -e "${GREEN}✅ Tous les services web actifs${NC}"
-    echo -e "${GREEN}✅ HDFS accessible et fonctionnel${NC}"
-    echo -e "\n${GREEN}🚀 PROJET PRÊT POUR LA SOUTENANCE!${NC}"
+    echo -e "\n${GREEN}🎉 EXCELLENT! Hadoop cluster perfectly operational!${NC}"
+    echo -e "${GREEN}✅ Entire infrastructure is working${NC}"
+    echo -e "${GREEN}✅ Amazon data (300MB+) loaded${NC}"
+    echo -e "${GREEN}✅ Image metadata present${NC}"
+    echo -e "${GREEN}✅ All web services active${NC}"
+    echo -e "${GREEN}✅ HDFS accessible and functional${NC}"
+    echo -e "\n${GREEN}🚀 PROJECT READY FOR PRESENTATION!${NC}"
 elif [[ $PERCENTAGE -ge 70 ]]; then
-    echo -e "\n${YELLOW}⚠️ BON! Cluster fonctionnel avec quelques ajustements${NC}"
-    echo -e "${YELLOW}💡 La plupart des services marchent${NC}"
+    echo -e "\n${YELLOW}⚠️ GOOD! Functional cluster with some adjustments${NC}"
+    echo -e "${YELLOW}💡 Most services are working${NC}"
 else
-    echo -e "\n${RED}❌ Des problèmes détectés${NC}"
-    echo -e "${YELLOW}💡 Essayez: ./scripts/deploy.sh --clean${NC}"
+    echo -e "\n${RED}❌ Problems detected${NC}"
+    echo -e "${YELLOW}💡 Try: ./scripts/deploy.sh --clean${NC}"
 fi
 
-echo -e "\n${BLUE}🔗 Accès Web (Git Bash compatible):${NC}"
+echo -e "\n${BLUE}🔗 Web Access (Git Bash compatible):${NC}"
 echo -e "${GREEN}• HDFS Web UI: http://localhost:9870${NC}"
 echo -e "${GREEN}• Dashboard: http://localhost:8501${NC}"
 echo -e "${GREEN}• Spark UI: http://localhost:8080${NC}"
 
-echo -e "\n${BLUE}💡 Commandes Git Bash pour tests manuels:${NC}"
-echo -e "${YELLOW}# Structure complète:${NC}"
+echo -e "\n${BLUE}💡 Git Bash commands for manual testing:${NC}"
+echo -e "${YELLOW}# Complete structure:${NC}"
 echo -e "docker exec namenode hdfs dfs -ls -R '/data'"
-echo -e "\n${YELLOW}# Lire les reviews:${NC}"
+echo -e "\n${YELLOW}# Read reviews:${NC}"
 echo -e "docker exec namenode hdfs dfs -cat '/data/text/existing/amazon_reviews.csv' | head -5"
-echo -e "\n${YELLOW}# Statistiques:${NC}"
+echo -e "\n${YELLOW}# Statistics:${NC}"
 echo -e "docker exec namenode hdfs dfs -du -h '/data/text/existing/'"
 
-echo -e "\n${GREEN}💡 Astuce Git Bash: Utilisez des guillemets simples pour les chemins HDFS!${NC}"
+echo -e "\n${GREEN}💡 Git Bash Tip: Use single quotes for HDFS paths!${NC}"
 
 exit $((TOTAL_TESTS - PASSED_TESTS))

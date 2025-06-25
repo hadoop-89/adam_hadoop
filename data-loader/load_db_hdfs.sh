@@ -2,59 +2,59 @@
 
 set -e
 
-# Répertoires locaux
+# Local directories
 DATA_DIR="/datasets"
 TEXT_DIR="$DATA_DIR/text"
 IMAGE_DIR="$DATA_DIR/images"
 
-# Configuration HDFS
+# HDFS configuration
 NAMENODE_HOST="namenode"
 NAMENODE_PORT="9870"
 NAMENODE_HDFS_PORT="9000"
 
-echo "📦 Création des dossiers locaux..."
+echo "📦 Creating local directories..."
 mkdir -p "$TEXT_DIR" "$IMAGE_DIR"
 
-# Fonction pour tester la disponibilité du NameNode via l'interface web
+# Function to test NameNode availability via web interface
 test_namenode_web() {
     curl -s --connect-timeout 5 "http://${NAMENODE_HOST}:${NAMENODE_PORT}" > /dev/null 2>&1
     return $?
 }
 
-# Fonction pour tester la disponibilité du port HDFS
+# Function to test HDFS port availability
 test_namenode_hdfs() {
     timeout 5 bash -c "cat < /dev/null > /dev/tcp/${NAMENODE_HOST}/${NAMENODE_HDFS_PORT}" 2>/dev/null
     return $?
 }
 
-# Attente du démarrage de HDFS
-echo "⏳ Attente du NameNode HDFS..."
+# Waiting for HDFS to start
+echo "⏳ Waiting for HDFS NameNode..."
 MAX_ATTEMPTS=60
 ATTEMPT=0
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
-    
-    echo "🔄 Tentative $ATTEMPT/$MAX_ATTEMPTS - Test de connexion au NameNode..."
-    
-    # Test de l'interface web du NameNode
+
+    echo "🔄 Attempt $ATTEMPT/$MAX_ATTEMPTS - Testing NameNode connection..."
+
+    # Test NameNode web interface
     if test_namenode_web; then
-        echo "✅ Interface web du NameNode accessible"
-        
-        # Test du port HDFS
+        echo "✅ NameNode web interface accessible"
+
+        # Test HDFS port
         if test_namenode_hdfs; then
-            echo "✅ Port HDFS accessible"
+            echo "✅ HDFS port accessible"
             break
         else
-            echo "⚠️ Interface web OK mais port HDFS non accessible"
+            echo "⚠️ Web interface OK but HDFS port not accessible"
         fi
     else
-        echo "❌ NameNode non encore disponible"
+        echo "❌ NameNode not yet available"
     fi
     
     if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-        echo "💥 ERREUR: Impossible de se connecter au NameNode après $MAX_ATTEMPTS tentatives"
-        echo "🔍 Vérifications suggérées:"
+        echo "💥 ERROR: Unable to connect to NameNode after $MAX_ATTEMPTS attempts"
+        echo "🔍 Suggested checks:"
         echo "   - docker ps | grep namenode"
         echo "   - docker logs namenode"
         echo "   - curl http://namenode:9870"
@@ -64,33 +64,33 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     sleep 5
 done
 
-echo "✅ NameNode HDFS est prêt !"
+echo "✅ NameNode HDFS is ready!"
 
-# Installation d'Hadoop client dans le conteneur pour les commandes HDFS
-echo "📥 Installation du client Hadoop..."
+# Install Hadoop client in the container for HDFS commands
+echo "📥 Installing Hadoop client..."
 HADOOP_VERSION="3.3.6"
 HADOOP_TAR="hadoop-${HADOOP_VERSION}.tar.gz"
 
 if [ ! -d "/usr/local/hadoop" ]; then
-    echo "⬇️ Téléchargement d'Hadoop ${HADOOP_VERSION}..."
+    echo "⬇️ Downloading Hadoop ${HADOOP_VERSION}..."
     wget -q "https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/${HADOOP_TAR}" -O "/tmp/${HADOOP_TAR}"
-    
-    echo "📦 Extraction d'Hadoop..."
+
+    echo "📦 Extracting Hadoop..."
     tar -xzf "/tmp/${HADOOP_TAR}" -C /tmp/
     mv "/tmp/hadoop-${HADOOP_VERSION}" /usr/local/hadoop
     rm "/tmp/${HADOOP_TAR}"
-    
-    echo "✅ Hadoop installé"
+
+    echo "✅ Hadoop installed"
 else
-    echo "✅ Hadoop déjà installé"
+    echo "✅ Hadoop already installed"
 fi
 
-# Configuration des variables d'environnement
+# Environment variable configuration
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 export HADOOP_HOME=/usr/local/hadoop
 export PATH=$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH
 
-# Configuration de base pour Hadoop
+# Basic Hadoop configuration
 cat > $HADOOP_HOME/etc/hadoop/core-site.xml << EOF
 <configuration>
     <property>
@@ -100,25 +100,25 @@ cat > $HADOOP_HOME/etc/hadoop/core-site.xml << EOF
 </configuration>
 EOF
 
-echo "⚙️ Configuration Hadoop terminée"
+echo "⚙️ Hadoop configuration complete"
 
-# Test de connexion HDFS
-echo "🧪 Test de connexion HDFS..."
+# Test HDFS connection
+echo "🧪 Testing HDFS connection..."
 if hdfs dfs -ls / > /dev/null 2>&1; then
-    echo "✅ Connexion HDFS établie avec succès !"
+    echo "✅ HDFS connection established successfully!"
 else
-    echo "❌ Échec de la connexion HDFS"
-    echo "🔍 Tentative de diagnostic..."
+    echo "❌ HDFS connection failed"
+    echo "🔍 Attempting diagnosis..."
     hdfs dfs -ls / 2>&1 || true
     exit 1
 fi
 
-# === NOUVEAU: Téléchargement de bases de données existantes ===
-echo "📥 === TÉLÉCHARGEMENT DE BASES DE DONNÉES EXISTANTES ==="
+# === NEW: Downloading existing databases ===
+echo "📥 === DOWNLOAD EXISTING DATABASES ==="
 
-# Configurer Kaggle si les variables d'environnement sont présentes
+# Configure Kaggle if environment variables are present
 if [ ! -f "/root/.kaggle/kaggle.json" ] && [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
-    echo "⚙️ Création du fichier de configuration Kaggle à partir des variables d'environnement..."
+    echo "⚙️ Creating Kaggle configuration file from environment variables..."
     mkdir -p /root/.kaggle
     cat > /root/.kaggle/kaggle.json <<EOF
 {"username":"$KAGGLE_USERNAME","key":"$KAGGLE_KEY"}
@@ -126,35 +126,35 @@ EOF
     chmod 600 /root/.kaggle/kaggle.json
 fi
 
-# Vérifier si Kaggle est configuré
+# Check if Kaggle is configured
 if [ -f "/root/.kaggle/kaggle.json" ]; then
-    echo "✅ Kaggle configuré, téléchargement des datasets..."
+    echo "✅ Kaggle configured, downloading datasets..."
     USE_KAGGLE=true
 else
-    echo "⚠️ Kaggle non configuré, création de données de test à la place..."
+    echo "⚠️ Kaggle not configured, creating test data instead..."
     USE_KAGGLE=false
 fi
 
 if [ "$USE_KAGGLE" = true ]; then
-    echo "📊 Téléchargement du dataset de reviews Amazon..."
-    # Dataset texte existant : Amazon Fine Food Reviews
+    echo "📊 Downloading Amazon reviews dataset..."
+    # Existing text dataset: Amazon Fine Food Reviews
     if kaggle datasets download -d snap/amazon-fine-food-reviews -p "$TEXT_DIR" --unzip 2>/dev/null; then
-        echo "✅ Dataset Amazon reviews téléchargé"
-        # Renommer le fichier principal
+        echo "✅ Amazon reviews dataset downloaded"
+        # Rename main file
         if [ -f "$TEXT_DIR/Reviews.csv" ]; then
             mv "$TEXT_DIR/Reviews.csv" "$TEXT_DIR/amazon_reviews.csv"
         fi
     else
-        echo "⚠️ Échec téléchargement Amazon reviews, utilisation de données de test"
+        echo "⚠️ Failed to download Amazon reviews, using test data instead"
         USE_KAGGLE=false
     fi
-    
-    echo "🖼️ Téléchargement du dataset d'images Intel Classification..."
-    # Dataset images existant : Intel Image Classification
+
+    echo "🖼️ Downloading Intel Image Classification dataset..."
+    # Existing image dataset: Intel Image Classification
     if kaggle datasets download -d puneet6060/intel-image-classification -p "$IMAGE_DIR" --unzip 2>/dev/null; then
-        echo "✅ Dataset Intel images téléchargé"
-        # Créer un fichier de métadonnées à partir des images téléchargées
-        echo "📋 Création des métadonnées d'images..."
+        echo "✅ Intel images dataset downloaded"
+        # Create metadata file from downloaded images
+        echo "📋 Creating image metadata..."
         echo "image_id,filename,category,path,size_kb" > "$IMAGE_DIR/intel_images_metadata.csv"
         find "$IMAGE_DIR" -name "*.jpg" -o -name "*.png" | head -100 | while IFS= read -r img_path; do
             filename=$(basename "$img_path")
@@ -163,16 +163,16 @@ if [ "$USE_KAGGLE" = true ]; then
             echo "$((++counter)),${filename},${category},${img_path},${size_kb}" >> "$IMAGE_DIR/intel_images_metadata.csv"
         done || true
     else
-        echo "⚠️ Échec téléchargement Intel images, utilisation de données de test"
+        echo "⚠️ Failed to download Intel images, using test data instead"
         USE_KAGGLE=false
     fi
 fi
 
-# Si Kaggle ne fonctionne pas, créer des données de test réalistes
+# If Kaggle is not working, create realistic test data
 if [ "$USE_KAGGLE" = false ]; then
-    echo "🗂️ Création de bases de données de test (simulant des datasets existants)..."
-    
-    # Base de données texte "existante" plus réaliste
+    echo "🗂️ Creating test databases (simulating existing datasets)..."
+
+    # More realistic "existing" text database
     cat > "$TEXT_DIR/existing_reviews_db.csv" << 'EOF'
 review_id,review_text,rating,timestamp,source,product_category
 1,"This product is absolutely amazing! Great quality and fast shipping. Would definitely buy again!",5,"2025-01-15T10:00:00","amazon","electronics"
@@ -192,7 +192,7 @@ review_id,review_text,rating,timestamp,source,product_category
 15,"Fantastic product! Amazing quality and great customer support. Five stars all the way!",5,"2025-01-29T13:30:00","ebay","clothing"
 EOF
 
-    # Base de données images "existante" plus réaliste
+    # More realistic "existing" image database
     cat > "$IMAGE_DIR/existing_images_db.csv" << 'EOF'
 image_id,filename,category,timestamp,source,size_kb,width,height,format
 1,"nature_001.jpg","landscape","2025-01-15T10:00:00","unsplash",245,1920,1080,"jpg"
@@ -212,13 +212,13 @@ image_id,filename,category,timestamp,source,size_kb,width,height,format
 15,"gadget_015.jpg","technology","2025-01-29T11:10:00","pixabay",223,1440,960,"jpg"
 EOF
 
-    echo "✅ Bases de données de test créées (simulant des datasets existants)"
+    echo "✅ Test databases created (simulating existing datasets)"
 fi
 
-# === NOUVEAU: Simulation du scraping web pour enrichissement ===
-echo "🌐 === ENRICHISSEMENT VIA SCRAPING WEB SIMULÉ ==="
+# === NEW: Simulating web scraping for enrichment ===
+echo "🌐 === ENRICHMENT VIA SIMULATED WEB SCRAPING ==="
 
-# Créer des données "scrapées" pour enrichir les bases existantes
+# Create "scraped" data to enrich existing databases
 cat > "$TEXT_DIR/scraped_reviews.csv" << 'EOF'
 review_id,review_text,rating,timestamp,source,product_category,scraped_from
 web_001,"Just bought this and I'm impressed! Great build quality and fast shipping.",4,"2025-06-24T08:00:00","web_scraping","electronics","reddit.com"
@@ -237,10 +237,10 @@ scraped_004,"scraped_tech_004.jpg","technology","2025-06-24T11:00:00","web_scrap
 scraped_005,"scraped_animal_005.jpg","animals","2025-06-24T12:00:00","web_scraping",234,"500px.com","https://500px.com/photo/animal005"
 EOF
 
-echo "✅ Données de scraping simulées créées"
+echo "✅ Simulated scraping data created"
 
-# Création des répertoires HDFS
-echo "📁 Création des répertoires HDFS..."
+# Creating HDFS directories
+echo "📁 Creating HDFS directories..."
 hdfs dfs -mkdir -p /data/text/existing
 hdfs dfs -mkdir -p /data/text/scraped
 hdfs dfs -mkdir -p /data/images/existing
@@ -249,73 +249,73 @@ hdfs dfs -mkdir -p /data/streaming
 hdfs dfs -mkdir -p /data/processed
 hdfs dfs -mkdir -p /data/ia_results
 
-echo "✅ Répertoires HDFS créés"
+echo "✅ HDFS directories created"
 
-# Envoi des données vers HDFS
-echo "🚀 Envoi des données vers HDFS..."
+# Sending data to HDFS
+echo "🚀 Sending data to HDFS..."
 
-# Données existantes
+# Existing data
 if [ "$USE_KAGGLE" = true ] && [ -f "$TEXT_DIR/amazon_reviews.csv" ]; then
     hdfs dfs -put -f "$TEXT_DIR/amazon_reviews.csv" /data/text/existing/
-    echo "✅ Dataset Amazon reviews chargé dans HDFS"
+    echo "✅ Amazon reviews dataset uploaded to HDFS"
 else
     hdfs dfs -put -f "$TEXT_DIR/existing_reviews_db.csv" /data/text/existing/
-    echo "✅ Base de données reviews existante chargée dans HDFS"
+    echo "✅ Existing reviews database uploaded to HDFS"
 fi
 
 if [ "$USE_KAGGLE" = true ] && [ -f "$IMAGE_DIR/intel_images_metadata.csv" ]; then
     hdfs dfs -put -f "$IMAGE_DIR/intel_images_metadata.csv" /data/images/existing/
-    echo "✅ Dataset Intel images metadata chargé dans HDFS"
+    echo "✅ Intel images metadata dataset uploaded to HDFS"
 else
     hdfs dfs -put -f "$IMAGE_DIR/existing_images_db.csv" /data/images/existing/
-    echo "✅ Base de données images existante chargée dans HDFS"
+    echo "✅ Existing images database uploaded to HDFS"
 fi
 
-# Données scrapées
+# Scraped data
 hdfs dfs -put -f "$TEXT_DIR/scraped_reviews.csv" /data/text/scraped/
 hdfs dfs -put -f "$IMAGE_DIR/scraped_images_metadata.csv" /data/images/scraped/
 
-echo "✅ Toutes les données chargées dans HDFS avec succès !"
+echo "✅ All data uploaded to HDFS successfully!"
 
-# Vérification et affichage des résultats
-echo "🔍 Vérification des données dans HDFS..."
+# VVerification and display of results
+echo "🔍 Verifying data in HDFS..."
 echo ""
-echo "📊 Structure HDFS complète:"
+echo "📊 Complete HDFS structure:"
 hdfs dfs -ls -R /data/
 
 echo ""
-echo "📝 Aperçu des données texte existantes:"
+echo "📝 Preview of existing text data:"
 hdfs dfs -cat /data/text/existing/*.csv | head -3
 
 echo ""
-echo "🌐 Aperçu des données texte scrapées:"
+echo "🌐 Preview of scraped text data:"
 hdfs dfs -cat /data/text/scraped/*.csv | head -3
 
 echo ""
-echo "🖼️ Aperçu des métadonnées images existantes:"
+echo "🖼️ Preview of existing image metadata:"
 hdfs dfs -cat /data/images/existing/*.csv | head -3
 
 echo ""
-echo "📡 Aperçu des métadonnées images scrapées:"
+echo "📡 Preview of scraped image metadata:"
 hdfs dfs -cat /data/images/scraped/*.csv | head -3
 
 echo ""
-echo "📈 Statistiques HDFS détaillées:"
-echo "$(hdfs dfs -count /data/text/existing/) - Données texte existantes"
-echo "$(hdfs dfs -count /data/text/scraped/) - Données texte scrapées"
-echo "$(hdfs dfs -count /data/images/existing/) - Données images existantes"
-echo "$(hdfs dfs -count /data/images/scraped/) - Données images scrapées"
+echo "📈 Detailed HDFS statistics:"
+echo "$(hdfs dfs -count /data/text/existing/) - Existing text data"
+echo "$(hdfs dfs -count /data/text/scraped/) - Scraped text data"
+echo "$(hdfs dfs -count /data/images/existing/) - Existing image data"
+echo "$(hdfs dfs -count /data/images/scraped/) - Scraped image data"
 
 echo ""
-echo "🎉 === CHARGEMENT TERMINÉ AVEC SUCCÈS ==="
-echo "✅ Bases de données existantes chargées"
-echo "✅ Enrichissement par scraping simulé"
-echo "✅ Architecture conforme au cahier des charges"
-echo "✅ Données disponibles pour traitement IA"
+echo "🎉 === LOADING COMPLETED SUCCESSFULLY ==="
+echo "✅ Existing databases loaded"
+echo "✅ Enrichment via simulated scraping"
+echo "✅ Architecture compliant with specifications"
+echo "✅ Data available for AI processing"
 echo ""
-echo "🔗 Accès HDFS Web UI: http://localhost:9870"
-echo "📁 Données disponibles dans:"
-echo "   - /data/text/existing/ (base existante)"
-echo "   - /data/text/scraped/ (enrichissement web)"
-echo "   - /data/images/existing/ (base existante)"
-echo "   - /data/images/scraped/ (enrichissement web)"
+echo "🔗 HDFS Web UI Access: http://localhost:9870"
+echo "📁 Data available in:"
+echo "   - /data/text/existing/ (existing database)"
+echo "   - /data/text/scraped/ (web enrichment)"
+echo "   - /data/images/existing/ (existing database)"
+echo "   - /data/images/scraped/ (web enrichment)"

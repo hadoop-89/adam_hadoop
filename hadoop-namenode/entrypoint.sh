@@ -1,16 +1,16 @@
 #!/bin/bash
 set -e
 
-# Démarrer le serveur SSH
+# Start the SSH server
 echo "Starting SSH server..."
 /usr/sbin/sshd
 
-# Format HDFS si ce n'est pas déjà fait
+# Format HDFS if not already done
 if [ ! -d "/hadoop/dfs/name/current" ]; then
     echo "Formatting NameNode..."
     hdfs namenode -format -force
 fi
 
-# Lancer le NameNode
+# Start the NameNode
 echo "Starting NameNode..."
 exec hdfs namenode

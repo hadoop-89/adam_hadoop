@@ -1,9 +1,9 @@
 #!/bin/bash
-# Script de déploiement COMPLET - TOUS SERVICES HADOOP + IA
+# COMPLETE Deployment Script - ALL HADOOP + AI SERVICES
 
 set -e
 
-# Colors pour Git Bash
+# Colors for Git Bash
 if [[ -t 1 ]]; then
     RED='\033[0;31m'
     GREEN='\033[0;32m'
@@ -21,7 +21,7 @@ fi
 echo -e "${BLUE}🚀 Complete Hadoop + AI Cluster Deployment${NC}"
 echo -e "${BLUE}=========================================${NC}"
 
-# Aller au répertoire du projet
+# Go to project directory
 cd "$(dirname "$0")/.."
 PROJECT_ROOT="$(pwd)"
 echo -e "${YELLOW}📂 Project: $PROJECT_ROOT${NC}"
@@ -78,7 +78,7 @@ case "${1:-}" in
         ;;
 esac
 
-# ============ FONCTIONS DE BASE ============
+# ============ BASIC FUNCTIONS ============
 
 check_docker() {
     echo -e "\n${YELLOW}🔍 Checking Docker...${NC}"
@@ -115,31 +115,31 @@ ensure_network() {
         echo -e "${GREEN}✅ Network hadoop-net already exists${NC}"
     fi
     
-    # Export la variable SERVER_PID manquante
+    # Export the missing SERVER_PID variable
     export SERVER_PID=""
 }
 
 complete_cleanup() {
     echo -e "\n${RED}🧹 COMPLETE CLEANUP ALL SERVICES${NC}"
-    
-    # 1. Arrêter tous les conteneurs
+
+    # 1. Stop all containers
     echo -e "${YELLOW}⏹️ Stopping all containers...${NC}"
     docker-compose down --remove-orphans -v || true
-    
-    # 2. Supprimer conteneurs orphelins
+
+    # 2. Remove orphaned containers
     echo -e "${YELLOW}🗑️ Removing orphaned containers...${NC}"
     docker ps -a --format "{{.Names}}" | grep -E "(namenode|datanode|dashboard|spark|kafka|hive|zookeeper|scraper)" | xargs -r docker rm -f || true
-    
-    # 3. Supprimer volumes
+
+    # 3. Remove volumes
     echo -e "${YELLOW}💾 Removing volumes...${NC}"
     docker volume ls -q | grep -E "(hadoop|namenode|datanode|kafka|hive)" | xargs -r docker volume rm -f || true
-    
-    # 4. Nettoyage général
+
+    # 4. General cleanup
     echo -e "${YELLOW}🧽 General cleanup...${NC}"
     docker system prune -f
     docker volume prune -f
 
-    # 5. Supprimer et recréer le réseau
+    # 5. Remove and recreate the network
     echo -e "${YELLOW}🌐 Recreating network...${NC}"
     docker network rm hadoop-net 2>/dev/null || true
     docker network create hadoop-net
@@ -147,7 +147,7 @@ complete_cleanup() {
     echo -e "${GREEN}✅ Complete cleanup finished${NC}"
 }
 
-# ============ FONCTIONS DE VÉRIFICATION ============
+# ============ HEALTH CHECK FUNCTIONS ============
 
 check_service_health() {
     local name=$1
@@ -195,7 +195,7 @@ check_hive_health() {
     fi
 }
 
-# ============ FONCTIONS DE DÉPLOIEMENT ============
+# ============ DEPLOYMENT FUNCTIONS ============
 
 wait_for_service() {
     local name=$1
@@ -256,7 +256,7 @@ deploy_all_services_ordered() {
     docker-compose up -d kafka
     sleep 20
     
-    # Vérifier Kafka
+    # Check Kafka
     if wait_for_service "Kafka" "9092" 60; then
         echo -e "${GREEN}✅ Kafka infrastructure ready${NC}"
     else
@@ -278,7 +278,7 @@ deploy_all_services_ordered() {
     docker-compose up -d datanode1 datanode2
     sleep 60
     
-    # Vérifier DataNodes
+    # Check DataNodes
     wait_for_service "DataNode1" "http://localhost:9864" 60 || echo -e "${YELLOW}⚠️ DataNode1 not responding${NC}"
     wait_for_service "DataNode2" "http://localhost:9865" 60 || echo -e "${YELLOW}⚠️ DataNode2 not responding${NC}"
     
@@ -293,14 +293,14 @@ deploy_all_services_ordered() {
         return 1
     fi
     
-    # Phase 6: Vérification DataNodes connection
+    # Phase 6: DataNodes connection check
     echo -e "\n${BLUE}🔍 Phase 6: DataNodes Connection Check${NC}"
     check_datanodes_connection
-    
-    # Phase 7: DATA LOADING (CRUCIAL - Crée la structure /data/)
+
+    # Phase 7: DATA LOADING (CRUCIAL - Create /data/ structure)
     echo -e "\n${YELLOW}📥 Phase 7: Data Loading & HDFS Structure Creation${NC}"
-    
-    # Vérifier qu'au moins 1 DataNode est connecté avant data loading
+
+    # Check that at least 1 DataNode is connected before data loading
     local connected_nodes=$(docker exec namenode hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | grep -o '[0-9]\+' | head -1 || echo "0")
     if [[ "$connected_nodes" -eq "0" ]]; then
         echo -e "${RED}❌ No DataNodes connected, cannot load data${NC}"
@@ -308,17 +308,17 @@ deploy_all_services_ordered() {
     fi
     
     echo -e "${GREEN}✅ HDFS ready with $connected_nodes DataNode(s) connected${NC}"
-    
-    # LANCER LE DATA-LOADER MAINTENANT
+
+    # START THE DATA LOADER MAINTENANT
     echo -e "\n${YELLOW}📦 Running data-loader to create HDFS structure...${NC}"
     if docker-compose run --rm data-loader; then
         echo -e "${GREEN}✅ Data loading completed successfully!${NC}"
-        
-        # Vérifier que /data/ a été créé
+
+        # Check that /data/ has been created
         if docker exec namenode hdfs dfs -ls '/data' >/dev/null 2>&1; then
             echo -e "${GREEN}✅ /data directory structure created${NC}"
-            
-            # Afficher structure créée
+
+            # Show created structure
             echo -e "\n${YELLOW}📊 Created HDFS structure:${NC}"
             docker exec namenode hdfs dfs -ls -R '/data' | head -15
         else
@@ -358,13 +358,13 @@ deploy_all_services_ordered() {
     echo -e "\n${YELLOW}🌐 Phase 10: Application Services${NC}"
     docker-compose up -d dashboard scraper
     sleep 25
-    
-    # Phase 11: VÉRIFICATION FINALE HDFS (APRÈS data-loader)
+
+    # Phase 11: FINAL HDFS VERIFICATION (AFTER data-loader)
     echo -e "\n${BLUE}🧪 Phase 11: Final HDFS Verification${NC}"
     if docker exec namenode hdfs dfs -ls '/data' >/dev/null 2>&1; then
         echo -e "${GREEN}✅ HDFS with data structure accessible${NC}"
-        
-        # Statistiques finales
+
+        # Final statistics
         echo -e "\n${YELLOW}📈 Final HDFS Statistics:${NC}"
         for data_path in "text/existing" "images/existing" "text/scraped" "images/scraped"; do
             local files=$(docker exec namenode hdfs dfs -ls "/data/$data_path/" 2>/dev/null | grep -v "Found" | wc -l || echo "0")
@@ -408,7 +408,7 @@ check_datanodes_connection() {
     return 0
 }
 
-# ============ FONCTIONS DE STATUS ============
+# ============ HEALTH CHECK FUNCTIONS ============
 
 show_complete_service_health() {
     echo -e "\n${BLUE}🏥 COMPLETE SERVICE HEALTH CHECK${NC}"
@@ -417,7 +417,7 @@ show_complete_service_health() {
     local healthy=0
     local total=0
     
-    # Services HTTP
+    # HTTP Services
     local http_services=(
         "NameNode:http://localhost:9870"
         "DataNode1:http://localhost:9864"
@@ -461,8 +461,8 @@ show_complete_service_health() {
             echo -e "${RED}❌ $name (port $port)${NC}"
         fi
     done
-    
-    # Services spéciaux
+
+    # Specialized Services
     echo -e "\n${YELLOW}🔍 Specialized Services:${NC}"
     
     # Kafka test
@@ -521,7 +521,7 @@ show_containers_complete() {
     echo -e "\n${BLUE}📊 COMPLETE CONTAINER STATUS${NC}"
     echo -e "${BLUE}===========================${NC}"
     
-    # Tous les conteneurs du projet
+    #  All containers in the project
     echo -e "\n${YELLOW}🐳 All Project Containers:${NC}"
     if docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(namenode|datanode|dashboard|spark|kafka|hive|zookeeper|scraper)" 2>/dev/null; then
         echo ""
@@ -529,8 +529,8 @@ show_containers_complete() {
         echo -e "${YELLOW}No project containers running${NC}"
         return 1
     fi
-    
-    # Conteneurs arrêtés
+
+    # Stopped Containers
     echo -e "${YELLOW}💤 Stopped Containers:${NC}"
     local stopped=$(docker ps -a --format "table {{.Names}}\t{{.Status}}" | grep -E "(namenode|datanode|dashboard|spark|kafka|hive|zookeeper|scraper)" | grep "Exited\|Created" || echo "None")
     if [[ "$stopped" == "None" ]]; then
@@ -549,15 +549,15 @@ show_data_status() {
     if docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
         echo -e "${GREEN}✅ HDFS accessible${NC}"
         
-        # Structure HDFS
+        # HDFS structure
         echo -e "\n${YELLOW}📂 HDFS Structure:${NC}"
         docker exec namenode hdfs dfs -ls -R '/data' 2>/dev/null | head -15 || echo "  No /data directory found"
-        
-        # Statistiques de stockage
+
+        # Storage statistics
         echo -e "\n${YELLOW}💾 Storage Statistics:${NC}"
         docker exec namenode hdfs dfs -df -h 2>/dev/null || echo "  Unable to get storage stats"
-        
-        # Données par type
+
+        # Data by type
         echo -e "\n${YELLOW}📊 Data by Type:${NC}"
         for data_type in "text/existing" "text/scraped" "images/existing" "images/scraped"; do
             local size=$(docker exec namenode hdfs dfs -du -h "/data/$data_type/" 2>/dev/null | awk '{print $1}' || echo "0")
@@ -587,7 +587,7 @@ show_data_status() {
     fi
 }
 
-# ============ FONCTIONS DE DEBUG ============
+# ============ DEBUG FUNCTIONS ============
 
 debug_all_services() {
     echo -e "\n${RED}🔧 DEBUG MODE - ALL SERVICES${NC}"
@@ -601,11 +601,11 @@ debug_all_services() {
         if docker ps --format "{{.Names}}" | grep -q "^$service$"; then
             echo -e "${GREEN}✅ $service is running${NC}"
             
-            # Status détaillé
+            # Detailed status
             local status=$(docker ps --format "{{.Status}}" --filter "name=$service")
             echo -e "${BLUE}Status: $status${NC}"
             
-            # Logs récents
+            # Recent logs
             echo -e "${BLUE}Last 5 log lines:${NC}"
             docker logs "$service" 2>&1 | tail -5 | sed 's/^/  /'
             
@@ -616,11 +616,11 @@ debug_all_services() {
         else
             echo -e "${RED}❌ $service is not running${NC}"
             
-            # Vérifier si le conteneur existe mais est arrêté
+            # Check if the container exists but is stopped
             local container_status=$(docker ps -a --format "{{.Names}}\t{{.Status}}" | grep "^$service" || echo "Container not found")
             echo -e "${BLUE}Container status: $container_status${NC}"
-            
-            # Si arrêté, montrer pourquoi
+
+            # If stopped, show why
             if docker ps -a --format "{{.Names}}" | grep -q "^$service$"; then
                 echo -e "${BLUE}Exit reason (last 3 lines):${NC}"
                 docker logs "$service" 2>&1 | tail -3 | sed 's/^/  /'
@@ -642,7 +642,7 @@ debug_all_services() {
     docker volume ls | grep -E "(hadoop|namenode|datanode)" | sed 's/^/  /' || echo "  No Hadoop volumes found"
 }
 
-# ============ FONCTION DE CHARGEMENT DES DONNÉES ============
+# ============ DATA LOADING FUNCTION ============
 
 load_data() {
     if [[ "$SKIP_DATA_LOADER" == "true" ]]; then
@@ -651,16 +651,16 @@ load_data() {
     fi
     
     echo -e "\n${BLUE}📥 === DATA LOADING PHASE ===${NC}"
-    
-    # Vérifier que HDFS est prêt
+
+    # Check that HDFS is ready
     echo -e "${YELLOW}🔍 Final HDFS check before data loading...${NC}"
     if ! docker exec namenode hdfs dfs -ls '/' >/dev/null 2>&1; then
         echo -e "${RED}❌ HDFS not ready for data loading${NC}"
         echo -e "${YELLOW}❌ HDFS not ready for data loading${NC}"
         # return 1
     fi
-    
-    # Vérifier qu'au moins 1 DataNode est connecté
+
+    # Check that at least 1 DataNode is connected
     local connected_nodes=$(docker exec namenode hdfs dfsadmin -report 2>/dev/null | grep "Live datanodes" | grep -o '[0-9]\+' | head -1 || echo "0")
     if [[ "$connected_nodes" -eq "0" ]]; then
         echo -e "${RED}❌ No DataNodes connected, cannot load data${NC}"
@@ -668,22 +668,22 @@ load_data() {
     fi
     
     echo -e "${GREEN}✅ HDFS ready with $connected_nodes DataNode(s) connected${NC}"
-    
-    # Lancer data-loader
+
+    # Start data-loader
     echo -e "\n${YELLOW}📦 Running data-loader...${NC}"
     if docker-compose run --rm data-loader; then
         echo -e "${GREEN}✅ Data loading completed successfully!${NC}"
-        
-        # Vérifier les données chargées
+
+        # Check loaded data
         echo -e "\n${BLUE}🔍 Verifying loaded data...${NC}"
         if docker exec namenode hdfs dfs -ls '/data' >/dev/null 2>&1; then
             echo -e "${GREEN}✅ Data directory created${NC}"
-            
-            # Afficher structure
+
+            # Show structure
             echo -e "\n${YELLOW}📊 Data structure:${NC}"
             docker exec namenode hdfs dfs -ls -R '/data' | head -20
-            
-            # Statistiques détaillées
+
+            # Detailed statistics
             echo -e "\n${YELLOW}📈 Detailed statistics:${NC}"
             for data_path in "/data/text/existing" "/data/images/existing" "/data/text/scraped" "/data/images/scraped"; do
                 local size=$(docker exec namenode hdfs dfs -du -h "$data_path/" 2>/dev/null | awk '{print $1}' || echo "N/A")
@@ -703,7 +703,7 @@ load_data() {
     fi
 }
 
-# ============ FONCTIONS D'AFFICHAGE ============
+# ============ DISPLAY FUNCTIONS ============
 
 show_access_info() {
     echo -e "\n${BLUE}📊 COMPLETE ACCESS INFORMATION${NC}"
@@ -734,7 +734,7 @@ show_access_info() {
     echo -e "  docker-compose logs [service]  # View service logs"
 }
 
-# ============ LOGIQUE PRINCIPALE ============
+# ============ MAIN LOGIC ============
 
 check_docker
 ensure_network
@@ -818,10 +818,10 @@ case $ACTION in
         ;;
 esac
 
-# Résumé final
+# Final summary
 echo -e "\n${GREEN}✅ Operation completed!${NC}"
 
-# Afficher les infos d'accès si le cluster tourne
+# Show access info if the cluster is running
 if [[ $ACTION != "status" ]] && [[ $ACTION != "debug" ]] && docker ps --format "{{.Names}}" | grep -q "namenode"; then
     show_complete_service_health
     show_access_info

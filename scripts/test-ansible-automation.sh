@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test d'automatisation complète Ansible
+# Ansible Full Automation Testing
 
 set -e
 
@@ -10,12 +10,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}🧪 TEST D'AUTOMATISATION ANSIBLE COMPLÈTE${NC}"
+echo -e "${BLUE}🧪 COMPLETE ANSIBLE AUTOMATION TESTING${NC}"
 echo -e "${BLUE}==========================================${NC}"
 
 cd "$(dirname "$0")/.."
 
-# Fonction pour attendre l'input utilisateur
+# Function to wait for user input
 confirm() {
     read -p "$1 (y/N): " -n 1 -r
     echo
@@ -23,73 +23,73 @@ confirm() {
 }
 
 echo -e "${YELLOW}Ce test va:${NC}"
-echo -e "1. 🧹 Détruire complètement le cluster existant"
-echo -e "2. 🚀 Tester l'installation automatique depuis zéro avec Ansible"
-echo -e "3. ✅ Valider que tout fonctionne"
+echo -e "1. 🧹 Completely destroy the existing cluster"
+echo -e "2. 🚀 Test the automatic installation from scratch with Ansible"
+echo -e "3. ✅ Validate that everything works"
 echo ""
 
-if ! confirm "Continuer avec le test d'automatisation complète?"; then
-    echo -e "${YELLOW}Test annulé${NC}"
+if ! confirm "Continue with the full automation test?"; then
+    echo -e "${YELLOW}Test cancelled${NC}"
     exit 0
 fi
 
-# =============== PHASE 1: DESTRUCTION COMPLÈTE ===============
-echo -e "\n${RED}🧹 PHASE 1: Destruction complète du cluster...${NC}"
+# =============== PHASE 1: COMPLETE DESTRUCTION ===============
+echo -e "\n${RED}🧹 PHASE 1: Complete destruction of the cluster...${NC}"
 
-echo -e "${YELLOW}⏹️ Arrêt de tous les containers...${NC}"
+echo -e "${YELLOW}⏹️ Stopping all containers...${NC}"
 docker-compose down -v --remove-orphans || true
 
-echo -e "${YELLOW}🗑️ Nettoyage des ressources Docker...${NC}"
+echo -e "${YELLOW}🗑️ Cleaning up Docker resources...${NC}"
 docker system prune -f || true
 
-echo -e "${GREEN}✅ Cluster complètement détruit${NC}"
+echo -e "${GREEN}✅ Cluster completely destroyed${NC}"
 
-# Vérification qu'il ne reste rien
-echo -e "\n${BLUE}🔍 Vérification: plus aucun container Hadoop${NC}"
+# Check that nothing remains
+echo -e "\n${BLUE}🔍 Checking: no Hadoop containers left${NC}"
 if docker ps --format "{{.Names}}" | grep -E "(namenode|datanode|dashboard)" >/dev/null 2>&1; then
-    echo -e "${RED}❌ Des containers Hadoop sont encore en cours!${NC}"
+    echo -e "${RED}❌ Hadoop containers are still running!${NC}"
     docker ps | grep -E "(namenode|datanode|dashboard)"
     exit 1
 else
-    echo -e "${GREEN}✅ Aucun container Hadoop détecté${NC}"
+    echo -e "${GREEN}✅ No Hadoop containers detected${NC}"
 fi
 
-# =============== PHASE 2: TEST INSTALLATION AUTOMATIQUE ===============
-echo -e "\n${BLUE}🚀 PHASE 2: Test installation automatique Ansible...${NC}"
+# =============== PHASE 2: TEST AUTOMATIC INSTALLATION ===============
+echo -e "\n${BLUE}🚀 PHASE 2: Test automatic installation with Ansible...${NC}"
 
-# Vérifier qu'Ansible est disponible
+# Check if Ansible is available
 if command -v ansible-playbook >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Ansible disponible localement${NC}"
+    echo -e "${GREEN}✅ Ansible available locally${NC}"
     ANSIBLE_CMD="ansible-playbook"
 elif docker --version >/dev/null 2>&1; then
-    echo -e "${YELLOW}⚠️ Ansible non installé, utilisation de Docker${NC}"
+    echo -e "${YELLOW}⚠️ Ansible not installed, using Docker${NC}"
     ANSIBLE_CMD="docker run --rm -v \$(pwd):/workspace -w /workspace --network host cytopia/ansible:latest ansible-playbook"
 else
-    echo -e "${RED}❌ Ni Ansible ni Docker disponible${NC}"
+    echo -e "${RED}❌ Neither Ansible nor Docker available${NC}"
     exit 1
 fi
 
-# Lancer l'installation automatique complète
-echo -e "\n${YELLOW}🚀 Lancement installation automatique...${NC}"
-echo -e "${BLUE}Commande: $ANSIBLE_CMD -i ansible/inventory.ini ansible/full-install.yml${NC}"
+# Start the full automatic installation
+echo -e "\n${YELLOW}🚀 Starting automatic installation...${NC}"
+echo -e "${BLUE}Command: $ANSIBLE_CMD -i ansible/inventory.ini ansible/full-install.yml${NC}"
 
 start_time=$(date +%s)
 
 if eval "$ANSIBLE_CMD -i ansible/inventory.ini ansible/full-install.yml --extra-vars fresh_install=true"; then
     end_time=$(date +%s)
     duration=$((end_time - start_time))
-    echo -e "\n${GREEN}✅ Installation automatique réussie en ${duration}s!${NC}"
+    echo -e "\n${GREEN}✅ Automatic installation succeeded in ${duration}s!${NC}"
 else
-    echo -e "\n${RED}❌ Installation automatique échouée${NC}"
-    echo -e "${YELLOW}💡 Vérifiez les logs ci-dessus${NC}"
+    echo -e "\n${RED}❌ Automatic installation failed${NC}"
+    echo -e "${YELLOW}💡 Check the logs above${NC}"
     exit 1
 fi
 
-# =============== PHASE 3: VALIDATION COMPLÈTE ===============
-echo -e "\n${GREEN}✅ PHASE 3: Validation de l'installation automatique...${NC}"
+# =============== PHASE 3: COMPLETE VALIDATION ===============
+echo -e "\n${GREEN}✅ PHASE 3: Validation of the automatic installation...${NC}"
 
-# Test des services
-echo -e "${YELLOW}🏥 Test des services web...${NC}"
+# Test the services
+echo -e "${YELLOW}🏥 Testing web services...${NC}"
 services=(
     "NameNode:http://localhost:9870"
     "DataNode1:http://localhost:9864"  
@@ -116,45 +116,45 @@ echo -e "\n${BLUE}📊 Services: $healthy_services/5 fonctionnels${NC}"
 # Test HDFS
 echo -e "\n${YELLOW}📁 Test HDFS...${NC}"
 if docker exec namenode hdfs dfs -ls /data >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ HDFS structure créée${NC}"
-    
-    # Afficher la structure
-    echo -e "${BLUE}📂 Structure HDFS créée:${NC}"
+    echo -e "${GREEN}✅ HDFS structure created${NC}"
+
+    # Show the structure
+    echo -e "${BLUE}📂 HDFS structure created:${NC}"
     docker exec namenode hdfs dfs -ls /data || true
 else
-    echo -e "${RED}❌ HDFS non accessible${NC}"
+    echo -e "${RED}❌ HDFS not accessible${NC}"
 fi
 
-# Test écriture HDFS
-echo -e "\n${YELLOW}✍️ Test écriture HDFS...${NC}"
+# Test HDFS write
+echo -e "\n${YELLOW}✍️ Test HDFS write...${NC}"
 if docker exec namenode hdfs dfs -cat /data/processed/ansible_install_test.txt >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Test d'écriture HDFS réussi${NC}"
+    echo -e "${GREEN}✅ HDFS write test succeeded${NC}"
 else
-    echo -e "${RED}❌ Test d'écriture HDFS échoué${NC}"
+    echo -e "${RED}❌ HDFS write test failed${NC}"
 fi
 
-# =============== RÉSULTATS FINAUX ===============
-echo -e "\n${BLUE}🎯 RÉSULTATS DU TEST D'AUTOMATISATION${NC}"
+# =============== FINAL RESULTS ===============
+echo -e "\n${BLUE}🎯 AUTOMATION TEST RESULTS${NC}"
 echo -e "${BLUE}====================================${NC}"
 
 if [[ $healthy_services -ge 4 ]]; then
-    echo -e "${GREEN}✅ TEST D'AUTOMATISATION RÉUSSI!${NC}"
-    echo -e "\n${GREEN}🎉 Votre Ansible installe automatiquement:${NC}"
-    echo -e "   • Infrastructure Hadoop complète"
-    echo -e "   • Tous les services (NameNode, DataNodes, etc.)"
-    echo -e "   • Structure HDFS"
-    echo -e "   • Tests de validation"
-    echo -e "\n${BLUE}⏱️ Temps total: ${duration}s${NC}"
-    echo -e "\n${YELLOW}🔗 Accès:${NC}"
+    echo -e "${GREEN}✅ AUTOMATION TEST SUCCEEDED!${NC}"
+    echo -e "\n${GREEN}🎉 Your Ansible installation is automatic:${NC}"
+    echo -e "   • Complete Hadoop infrastructure"
+    echo -e "   • All services (NameNode, DataNodes, etc.)"
+    echo -e "   • HDFS structure"
+    echo -e "   • Validation tests"
+    echo -e "\n${BLUE}⏱️ Total time: ${duration}s${NC}"
+    echo -e "\n${YELLOW}🔗 Access:${NC}"
     echo -e "   • NameNode: http://localhost:9870"
     echo -e "   • Dashboard: http://localhost:8501"
-    
-    echo -e "\n${GREEN}✅ ANSIBLE AUTOMATISE PARFAITEMENT VOTRE PROJET!${NC}"
+
+    echo -e "\n${GREEN}✅ ANSIBLE AUTOMATES YOUR PROJECT PERFECTLY!${NC}"
 else
-    echo -e "${RED}❌ TEST D'AUTOMATISATION PARTIELLEMENT ÉCHOUÉ${NC}"
-    echo -e "${YELLOW}⚠️ Seulement $healthy_services/5 services fonctionnels${NC}"
-    echo -e "${YELLOW}💡 Vérifiez les logs pour débugger${NC}"
+    echo -e "${RED}❌ AUTOMATION TEST PARTIALLY FAILED${NC}"
+    echo -e "${YELLOW}⚠️ Only $healthy_services/5 services functional${NC}"
+    echo -e "${YELLOW}💡 Check the logs to debug${NC}"
 fi
 
-echo -e "\n${BLUE}💡 Pour relancer votre cluster normalement:${NC}"
+echo -e "\n${BLUE}💡 To restart your cluster normally:${NC}"
 echo -e "   ./scripts/deploy.sh"

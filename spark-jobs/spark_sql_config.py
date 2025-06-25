@@ -3,47 +3,47 @@ from pyspark.sql.functions import *
 from pyspark.sql.types import *
 
 def create_spark_session():
-    """Créer une session Spark optimisée pour HDFS et analytics"""
+    """Create a Spark session optimized for HDFS and analytics"""
     spark = SparkSession.builder         .appName("HadoopAnalytics")         .config("spark.sql.adaptive.enabled", "true")         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")         .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000")         .config("spark.sql.warehouse.dir", "hdfs://namenode:9000/user/hive/warehouse")         .config("spark.sql.catalogImplementation", "in-memory")         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")         .getOrCreate()
     
     return spark
 
 def load_existing_data(spark):
-    """Charger les bases de données existantes"""
+    """Load existing datasets"""
     try:
-        # Charger les données texte existantes
+        # Load existing text data
         reviews_df = spark.read.option("header", "true").csv("hdfs://namenode:9000/data/text/existing/")
         reviews_df.createOrReplaceTempView("existing_reviews")
-        
-        # Charger les données images existantes
+
+        # Load existing image data
         images_df = spark.read.option("header", "true").csv("hdfs://namenode:9000/data/images/existing/")
         images_df.createOrReplaceTempView("existing_images")
         
         return reviews_df, images_df
     except Exception as e:
-        print(f"Erreur lors du chargement: {e}")
+        print(f"Error loading existing data: {e}")
         return None, None
 
 def load_scraped_data(spark):
-    """Charger les données scrapées"""
+    """Load scraped data"""
     try:
-        # Charger les données texte scrapées
+        # Load scraped text data
         scraped_reviews_df = spark.read.option("header", "true").csv("hdfs://namenode:9000/data/text/scraped/")
         scraped_reviews_df.createOrReplaceTempView("scraped_reviews")
-        
-        # Charger les données images scrapées
+
+        # Load scraped image data
         scraped_images_df = spark.read.option("header", "true").csv("hdfs://namenode:9000/data/images/scraped/")
         scraped_images_df.createOrReplaceTempView("scraped_images")
         
         return scraped_reviews_df, scraped_images_df
     except Exception as e:
-        print(f"Erreur lors du chargement scraped: {e}")
+        print(f"Error loading scraped data: {e}")
         return None, None
 
 def create_unified_views(spark):
-    """Créer des vues unifiées combinant données existantes et scrapées"""
+    """Create unified views combining existing and scraped data"""
     try:
-        # Vue unifiée des reviews
+        # Unified view of reviews
         spark.sql("""
             CREATE OR REPLACE TEMPORARY VIEW all_reviews AS
             SELECT 
@@ -68,8 +68,8 @@ def create_unified_views(spark):
                 'scraped' as data_source
             FROM scraped_reviews
         """)
-        
-        # Vue unifiée des images
+
+        # Unified view of images
         spark.sql("""
             CREATE OR REPLACE TEMPORARY VIEW all_images AS
             SELECT 
@@ -95,23 +95,23 @@ def create_unified_views(spark):
             FROM scraped_images
         """)
         
-        print("✅ Vues unifiées créées avec succès")
+        print("✅ Unified views created successfully")
         return True
     except Exception as e:
-        print(f"Erreur lors de la création des vues: {e}")
+        print(f"Error creating views: {e}")
         return False
 
 if __name__ == "__main__":
     spark = create_spark_session()
-    
-    # Charger les données
+
+    # Load data
     reviews_df, images_df = load_existing_data(spark)
     scraped_reviews_df, scraped_images_df = load_scraped_data(spark)
-    
-    # Créer les vues unifiées
+
+    # Create unified views
     create_unified_views(spark)
-    
-    print("✅ Configuration Spark SQL terminée")
-    
-    # Garder la session ouverte
+
+    print("✅ Spark SQL configuration complete")
+
+    # Keep the session open
     spark.sparkContext.setLogLevel("WARN")

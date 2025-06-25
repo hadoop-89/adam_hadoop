@@ -4,47 +4,47 @@ from PIL import Image
 import io
 
 def clean_text(text):
-    """Nettoyage basique du texte"""
+    """Basic text cleaning"""
     if not text:
         return ""
-    
-    # Enlever les URLs
+
+    # Remove URLs
     text = re.sub(r'http\S+', '', text)
-    
-    # Enlever les caractères spéciaux
+
+    # Remove special characters
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
-    
-    # Enlever les espaces multiples
+
+    # Remove multiple spaces
     text = ' '.join(text.split())
     
     return text.lower().strip()
 
 def tokenize_simple(text):
-    """Tokenisation simple (split par espaces)"""
+    """Simple tokenization (split by spaces)"""
     return text.split()
 
 def convert_image_to_bytes(image_path):
-    """Convertir image en base64 pour envoi API"""
+    """Convert image to base64 for API sending"""
     try:
         with Image.open(image_path) as img:
-            # Redimensionner si trop grande
+            # Resize if too large
             if img.width > 800 or img.height > 800:
                 img.thumbnail((800, 800))
-            
-            # Convertir en bytes
+
+            # Convert to bytes
             buffer = io.BytesIO()
             img.save(buffer, format='JPEG')
             img_bytes = buffer.getvalue()
-            
-            # Encoder en base64
+
+            # Encode to base64
             return base64.b64encode(img_bytes).decode('utf-8')
     except Exception as e:
-        print(f"Erreur conversion image: {e}")
+        print(f"Error converting image: {e}")
         return None
 
-# Fonction pour prétraiter un batch de données
+# Function to preprocess a batch of data
 def preprocess_batch(data_batch):
-    """Prétraiter un batch de données pour l'API IA"""
+    """Preprocess a batch of data for the AI API"""
     processed = []
     
     for item in data_batch:

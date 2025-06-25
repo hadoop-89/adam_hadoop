@@ -4,30 +4,30 @@ from pyspark.sql.types import *
 import sys
 import os
 
-# Ajouter le chemin pour importer la configuration
+# Add the path to import the configuration
 sys.path.append('/opt/spark-jobs')
 from spark_sql_config import create_spark_session, load_existing_data, load_scraped_data, create_unified_views
 
 def run_analytics_demo():
-    """Démonstration complète des analytics avec Spark SQL"""
-    print("🚀 === DÉMONSTRATION ANALYTICS SPARK SQL ===")
-    
-    # Créer la session Spark
+    """Complete demonstration of analytics with Spark SQL"""
+    print("🚀 === SPARK SQL ANALYTICS DEMO ===")
+
+    # Create Spark session
     spark = create_spark_session()
     
     try:
-        # Charger les données
-        print("📊 Chargement des données...")
+        # Load data
+        print("📊 Loading data...")
         reviews_df, images_df = load_existing_data(spark)
         scraped_reviews_df, scraped_images_df = load_scraped_data(spark)
-        
-        # Créer les vues unifiées
+
+        # Create unified views
         create_unified_views(spark)
         
         print("\n📈 === ANALYTICS BUSINESS ===")
-        
-        # Analytics 1: Distribution par source
-        print("\n🏪 1. Distribution des reviews par source:")
+
+        # Analytics 1: Distribution by source
+        print("\n🏪 1. Distribution of reviews by source:")
         spark.sql("""
             SELECT 
                 source,
@@ -39,9 +39,9 @@ def run_analytics_demo():
             GROUP BY source, data_source
             ORDER BY total_reviews DESC
         """).show()
-        
-        # Analytics 2: Analyse temporelle
-        print("\n📅 2. Analyse temporelle des reviews:")
+
+        # Analytics 2: Temporal analysis
+        print("\n📅 2. Temporal analysis of reviews:")
         spark.sql("""
             SELECT 
                 DATE(timestamp) as date,
@@ -52,9 +52,9 @@ def run_analytics_demo():
             GROUP BY DATE(timestamp), data_source
             ORDER BY date DESC
         """).show()
-        
-        # Analytics 3: Analyse de satisfaction
-        print("\n⭐ 3. Analyse de satisfaction:")
+
+        # Analytics 3: Satisfaction analysis
+        print("\n⭐ 3. Satisfaction analysis:")
         spark.sql("""
             SELECT 
                 CASE 
@@ -73,9 +73,9 @@ def run_analytics_demo():
                 END
             ORDER BY count DESC
         """).show()
-        
-        # Analytics 4: Analyse des catégories d'images
-        print("\n🖼️ 4. Distribution des catégories d'images:")
+
+        # Analytics 4: Image category analysis
+        print("\n🖼️ 4. Distribution of image categories:")
         spark.sql("""
             SELECT 
                 category,
@@ -86,9 +86,9 @@ def run_analytics_demo():
             GROUP BY category, data_source
             ORDER BY image_count DESC
         """).show()
-        
-        # Analytics 5: Comparaison données existantes vs scrapées
-        print("\n🔄 5. Comparaison données existantes vs scrapées:")
+
+        # Analytics 5: Comparison of existing vs scraped data
+        print("\n🔄 5. Comparison of existing vs scraped data:")
         spark.sql("""
             SELECT 
                 data_source,
@@ -99,9 +99,9 @@ def run_analytics_demo():
             FROM all_reviews
             GROUP BY data_source
         """).show()
-        
-        # Analytics 6: Top sources par performance
-        print("\n🎯 6. Performance par source (toutes données):")
+
+        # Analytics 6: Top sources by performance
+        print("\n🎯 6. Performance by source (all data):")
         spark.sql("""
             SELECT 
                 source,
@@ -113,11 +113,11 @@ def run_analytics_demo():
             GROUP BY source
             ORDER BY satisfaction_rate DESC, total_reviews DESC
         """).show()
-        
-        # Sauvegarder les résultats analytics
-        print("\n💾 Sauvegarde des résultats analytics...")
-        
-        # Créer un résumé des analytics
+
+        # Save analytics results
+        print("\n💾 Saving analytics results...")
+
+        # Create a summary of the analytics
         summary_df = spark.sql("""
             SELECT 
                 'total_reviews' as metric,
@@ -146,16 +146,16 @@ def run_analytics_demo():
             FROM all_images
         """)
         
-        # Sauvegarder en HDFS
+        # Save to HDFS
         summary_df.write.mode("overwrite").csv("hdfs://namenode:9000/data/analytics_summary")
         
-        print("\n✅ === DÉMONSTRATION TERMINÉE ===")
-        print("🎯 Spark SQL configuré et fonctionnel")
-        print("📊 Analytics sauvegardées dans HDFS")
-        print("🚀 Prêt pour la soutenance !")
+        print("\n✅ === DEMONSTRATION COMPLETE ===")
+        print("🎯 Spark SQL configured and functional")
+        print("📊 Analytics saved to HDFS")
+        print("🚀 Ready for the presentation!")
         
     except Exception as e:
-        print(f"❌ Erreur lors de la démonstration: {e}")
+        print(f"❌ Error during demonstration: {e}")
         import traceback
         traceback.print_exc()
     finally:

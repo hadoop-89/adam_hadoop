@@ -21,11 +21,11 @@ RUN wget https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/had
 
 RUN mkdir -p /hadoop/dfs/data
 
-# Copier les fichiers de configuration
+# Copy configuration files
 COPY core-site.xml $HADOOP_HOME/etc/hadoop/core-site.xml
 COPY hdfs-site.xml $HADOOP_HOME/etc/hadoop/hdfs-site.xml
 
 EXPOSE 9864
 
-# Commande simple : attendre puis démarrer
-CMD ["sh", "-c", "echo 'Attente du NameNode...' && sleep 30 && echo 'Démarrage du DataNode...' && hdfs datanode"]
+# Simple command: wait then start
+CMD ["sh", "-c", "echo 'Waiting for NameNode...' && sleep 30 && echo 'Starting DataNode...' && hdfs datanode"]

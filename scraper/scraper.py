@@ -35,7 +35,7 @@ class RealWebScraper:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
-        # Sources à scraper
+        # Sources to scrape
         self.text_sources = [
             {
                 'name': 'hackernews_rss',
@@ -72,8 +72,8 @@ class RealWebScraper:
                 'type': 'reddit_images'
             }
         ]
-        
-        # Statistiques
+
+        # Statistics
         self.stats = {
             'total_scraped': 0,
             'text_articles': 0,
@@ -82,18 +82,18 @@ class RealWebScraper:
         }
     
     def scrape_hackernews_rss(self):
-        """Scraper HackerNews RSS (amélioré)"""
+        """Scraper HackerNews RSS (improved version)"""
         try:
             logger.info("🔍 Scraping HackerNews RSS...")
             
             feed = feedparser.parse('https://news.ycombinator.com/rss')
             articles = []
-            
-            for entry in feed.entries[:15]:  # 15 derniers articles
-                # Nettoyage du titre
+
+            for entry in feed.entries[:15]:  # 15 latest articles
+                # Clean the title
                 title = self.clean_text(entry.title)
-                
-                # Extraction de l'URL et description
+
+                # Extract URL and description
                 description = getattr(entry, 'description', '') or getattr(entry, 'summary', '')
                 
                 article = {
@@ -110,16 +110,16 @@ class RealWebScraper:
                 }
                 
                 articles.append(article)
-                
-                # Envoyer vers Kafka
+
+                # Send to Kafka
                 self.send_to_kafka('text-topic', article)
                 self.stats['text_articles'] += 1
-            
-            logger.info(f"✅ HackerNews: {len(articles)} articles scrapés")
+
+            logger.info(f"✅ HackerNews: {len(articles)} articles scraped")
             return articles
             
         except Exception as e:
-            logger.error(f"❌ Erreur HackerNews: {e}")
+            logger.error(f"❌ Error HackerNews: {e}")
             self.stats['errors'] += 1
             return []
     
@@ -144,7 +144,7 @@ class RealWebScraper:
             for post in data['data']['children'][:12]:
                 post_data = post['data']
                 
-                # Filtrer les posts avec du contenu
+                # Filter posts with content
                 if post_data.get('selftext') or post_data.get('title'):
                     title = self.clean_text(post_data.get('title', ''))
                     content = self.clean_text(post_data.get('selftext', ''))
@@ -167,12 +167,12 @@ class RealWebScraper:
                     articles.append(article)
                     self.send_to_kafka('text-topic', article)
                     self.stats['text_articles'] += 1
-            
-            logger.info(f"✅ Reddit Technology: {len(articles)} articles scrapés")
+
+            logger.info(f"✅ Reddit Technology: {len(articles)} articles scraped")
             return articles
             
         except Exception as e:
-            logger.error(f"❌ Erreur Reddit Technology: {e}")
+            logger.error(f"❌ Error Reddit Technology: {e}")
             self.stats['errors'] += 1
             return []
     
@@ -228,7 +228,7 @@ class RealWebScraper:
                                         if hasattr(entry, 'content') and entry.content 
                                         else getattr(entry, 'summary', ''))
                 
-                # Extraire les catégories si disponibles
+                # Extract categories if available
                 categories = []
                 if hasattr(entry, 'tags'):
                     categories = [tag.term for tag in entry.tags[:3]]
@@ -256,19 +256,19 @@ class RealWebScraper:
             return articles
             
         except Exception as e:
-            logger.error(f"❌ Erreur TechCrunch: {e}")
+            logger.error(f"❌ Error TechCrunch: {e}")
             self.stats['errors'] += 1
             return []
     
     def scrape_reddit_images(self):
-        """Scraper métadonnées d'images depuis Reddit"""
+        """Scraper image metadata from Reddit"""
         try:
             logger.info("🖼️ Scraping Reddit images metadata...")
             
             subreddits = ['EarthPorn', 'MachinePorn', 'tech', 'pics']
             all_images = []
             
-            for subreddit in subreddits[:2]:  # Limiter pour éviter rate limiting
+            for subreddit in subreddits[:2]:  # Limit to avoid rate limiting
                 response = requests.get(
                     f'https://www.reddit.com/r/{subreddit}.json?limit=15',
                     headers=self.headers,
@@ -281,7 +281,7 @@ class RealWebScraper:
                     for post in data['data']['children']:
                         post_data = post['data']
                         
-                        # Vérifier si c'est une image
+                        # Check if it is an image
                         url = post_data.get('url', '')
                         if any(url.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif']):
                             
@@ -305,23 +305,23 @@ class RealWebScraper:
                             self.send_to_kafka('images-topic', image_metadata)
                             self.stats['image_metadata'] += 1
                 
-                # Pause entre subreddits
+                # Wait between subreddits
                 time.sleep(2)
-            
-            logger.info(f"✅ Reddit Images: {len(all_images)} métadonnées scrapées")
+
+            logger.info(f"✅ Reddit Images: {len(all_images)} image metadata scraped")
             return all_images
             
         except Exception as e:
-            logger.error(f"❌ Erreur Reddit Images: {e}")
+            logger.error(f"❌ Error Reddit Images: {e}")
             self.stats['errors'] += 1
             return []
     
     def scrape_news_aggregation(self):
-        """Scraper d'agrégation de news depuis plusieurs sources"""
+        """Scraper news aggregation from multiple sources"""
         try:
             logger.info("📰 Scraping news aggregation...")
-            
-            # Sources RSS supplémentaires
+
+            # Additional RSS sources
             rss_sources = [
                 'https://rss.cnn.com/rss/edition.rss',
                 'https://feeds.reuters.com/reuters/technologyNews',
@@ -329,13 +329,13 @@ class RealWebScraper:
             ]
             
             all_articles = []
-            
-            for rss_url in rss_sources[:2]:  # Limiter pour performance
+
+            for rss_url in rss_sources[:2]:  # Limit for performance
                 try:
                     feed = feedparser.parse(rss_url)
                     source_name = rss_url.split('//')[1].split('/')[0].replace('www.', '')
                     
-                    for entry in feed.entries[:5]:  # 5 par source
+                    for entry in feed.entries[:5]:  # 5 per source
                         title = self.clean_text(entry.title)
                         description = self.clean_text(getattr(entry, 'description', ''))
                         
@@ -356,39 +356,39 @@ class RealWebScraper:
                         all_articles.append(article)
                         self.send_to_kafka('text-topic', article)
                         self.stats['text_articles'] += 1
-                    
-                    time.sleep(1)  # Pause entre sources
-                    
+
+                    time.sleep(1)  # Wait between sources
+
                 except Exception as e:
-                    logger.warning(f"Erreur source {rss_url}: {e}")
-            
-            logger.info(f"✅ News Aggregation: {len(all_articles)} articles scrapés")
+                    logger.warning(f"Error source {rss_url}: {e}")
+
+            logger.info(f"✅ News Aggregation: {len(all_articles)} articles scraped")
             return all_articles
             
         except Exception as e:
-            logger.error(f"❌ Erreur News Aggregation: {e}")
+            logger.error(f"❌ Error News Aggregation: {e}")
             self.stats['errors'] += 1
             return []
     
     def clean_text(self, text):
-        """Nettoyer le texte scrapé"""
+        """Clean the scraped text"""
         if not text:
             return ""
-        
-        # Supprimer les balises HTML
+
+        # Remove HTML tags
         text = BeautifulSoup(text, 'html.parser').get_text()
-        
-        # Supprimer les caractères spéciaux
+
+        # Remove special characters
         text = re.sub(r'[\r\n\t]+', ' ', text)
         text = re.sub(r'\s+', ' ', text)
-        
-        # Supprimer les URLs
+
+        # Remove URLs
         text = re.sub(r'http\S+|www\.\S+', '', text)
         
         return text.strip()
     
     def categorize_content(self, content):
-        """Catégoriser le contenu selon des mots-clés"""
+        """Categorize content based on keywords"""
         content_lower = content.lower()
         
         categories = {
@@ -407,7 +407,7 @@ class RealWebScraper:
         return 'general'
     
     def categorize_image(self, title):
-        """Catégoriser les images selon le titre"""
+        """Categorize images based on the title"""
         title_lower = title.lower()
         
         if any(word in title_lower for word in ['nature', 'earth', 'landscape', 'mountain', 'forest']):
@@ -422,9 +422,9 @@ class RealWebScraper:
             return 'general'
     
     def send_to_kafka(self, topic, data):
-        """Envoyer les données vers Kafka"""
+        """Send data to Kafka"""
         try:
-            # Ajouter métadonnées de traçabilité
+            # Add tracing metadata
             data['kafka_topic'] = topic
             data['sent_to_kafka_at'] = datetime.now().isoformat()
             
@@ -436,17 +436,17 @@ class RealWebScraper:
             self.stats['total_scraped'] += 1
             
         except Exception as e:
-            logger.error(f"❌ Erreur envoi Kafka: {e}")
+            logger.error(f"❌ Error sending to Kafka: {e}")
             self.stats['errors'] += 1
     
     def run_full_scraping_cycle(self):
-        """Cycle complet de scraping"""
-        logger.info("🚀 === DÉBUT CYCLE SCRAPING COMPLET ===")
-        
+        """Full scraping cycle"""
+        logger.info("🚀 === START FULL SCRAPING CYCLE ===")
+
         start_time = time.time()
-        
-        # Scraping textes
-        logger.info("📝 Phase 1: Scraping textes...")
+
+        # Scraping texts
+        logger.info("📝 Phase 1: Scraping texts...")
         text_results = []
         text_results.extend(self.scrape_hackernews_rss())
         time.sleep(2)
@@ -464,22 +464,22 @@ class RealWebScraper:
         image_results.extend(self.scrape_reddit_images())
         
         duration = time.time() - start_time
-        
-        # Statistiques finales
-        logger.info("📊 === STATISTIQUES CYCLE SCRAPING ===")
-        logger.info(f"⏱️ Durée totale: {duration:.1f}s")
-        logger.info(f"📝 Articles texte: {self.stats['text_articles']}")
-        logger.info(f"🖼️ Métadonnées images: {self.stats['image_metadata']}")
-        logger.info(f"📊 Total envoyé Kafka: {self.stats['total_scraped']}")
-        logger.info(f"❌ Erreurs: {self.stats['errors']}")
-        
-        # Résumé par source
+
+        # Final statistics
+        logger.info("📊 === STATISTICS FULL SCRAPING CYCLE ===")
+        logger.info(f"⏱️ Total duration: {duration:.1f}s")
+        logger.info(f"📝 Text articles: {self.stats['text_articles']}")
+        logger.info(f"🖼️ Image metadata: {self.stats['image_metadata']}")
+        logger.info(f"📊 Total sent to Kafka: {self.stats['total_scraped']}")
+        logger.info(f"❌ Errors: {self.stats['errors']}")
+
+        # Summary by source
         sources_summary = {}
         for article in text_results:
             source = article['source']
             sources_summary[source] = sources_summary.get(source, 0) + 1
-        
-        logger.info("📋 Résumé par source:")
+
+        logger.info("📋 Summary by source:")
         for source, count in sources_summary.items():
             logger.info(f"   • {source}: {count} articles")
         
@@ -491,32 +491,33 @@ class RealWebScraper:
         }
 
 def main():
-    """Fonction principale du scraper"""
-    logger.info("🚀 Démarrage du scraper web réel...")
-    
+    """Main function of the scraper"""
+    logger.info("🚀 Starting the real web scraper...")
+    # Initialize the scraper
     scraper = RealWebScraper()
-    
-    # Configuration depuis variables d'environnement
-    scrape_interval = int(os.getenv('SCRAPE_INTERVAL', 300))  # 5 minutes par défaut
-    
-    logger.info(f"⏰ Intervalle de scraping: {scrape_interval}s")
-    
+
+    # Configuration from environment variables
+    scrape_interval = int(os.getenv('SCRAPE_INTERVAL', 300))  # 5 minutes by default
+
+    logger.info(f"⏰ Scrape interval: {scrape_interval}s")
+    # Main loop
+    logger.info("🔄 Starting the main scraping loop...")
     while True:
         try:
-            # Lancer un cycle complet
+            # Start a full cycle
             results = scraper.run_full_scraping_cycle()
-            
-            logger.info(f"✅ Cycle terminé. Prochain cycle dans {scrape_interval}s...")
-            
-            # Attendre avant le prochain cycle
+
+            logger.info(f"✅ Cycle completed. Next cycle in {scrape_interval}s...")
+
+            # Wait before the next cycle
             time.sleep(scrape_interval)
             
         except KeyboardInterrupt:
-            logger.info("🛑 Arrêt du scraper...")
+            logger.info("🛑 Stopping the scraper...")
             break
         except Exception as e:
-            logger.error(f"❌ Erreur dans le cycle principal: {e}")
-            time.sleep(60)  # Attendre 1 min en cas d'erreur
+            logger.error(f"❌ Error in main cycle: {e}")
+            time.sleep(60)  # Wait 1 min in case of error
 
 if __name__ == "__main__":
     main()

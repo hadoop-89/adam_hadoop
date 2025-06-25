@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# 🔹 Installer Java, unzip, curl et Python
+# 🔹 Install Java, unzip, curl and Python
 RUN apt update && apt install -y \
     openjdk-8-jdk \
     unzip \
@@ -16,25 +16,25 @@ RUN apt update && apt install -y \
     nano \
     dos2unix
 
-# 🔹 Installer Kaggle CLI
+# 🔹 Install Kaggle CLI
 RUN pip3 install kaggle
 
-# 🔹 Variables pour Java
+# 🔹 Variables for Java
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV PATH=$JAVA_HOME/bin:$PATH
 
-# 🔹 Préparer les dossiers
+# 🔹 Prepare directories
 RUN mkdir -p /datasets/text /datasets/images
 
-# 🔹 Copier et corriger le script (conversion Windows->Linux)
+# 🔹 Copy and fix script (Windows->Linux conversion)
 COPY load_db_hdfs.sh ./load_db_hdfs.sh
 RUN dos2unix ./load_db_hdfs.sh && chmod +x ./load_db_hdfs.sh
 
-# 🔹 Préparer le dossier de configuration Kaggle
+# 🔹 Prepare Kaggle configuration folder
 ENV KAGGLE_CONFIG_DIR=/root/.kaggle
 RUN mkdir -p "$KAGGLE_CONFIG_DIR"
 
-# 🔹 Corriger le problème SERVER_PID
+# 🔹 Fix SERVER_PID issue
 ENV SERVER_PID=""
 
 CMD ["./load_db_hdfs.sh"]

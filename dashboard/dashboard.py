@@ -12,12 +12,12 @@ from collections import defaultdict
 
 st.set_page_config(page_title="Hadoop Dashboard", layout="wide")
 
-st.title("📊 Dashboard Hadoop - Analyse en temps réel")
+st.title("📊 Dashboard Hadoop - Real-time analysis")
 
-# Sidebar pour les options
+# Sidebar for options
 st.sidebar.header("Options")
-refresh_rate = st.sidebar.slider("Rafraîchissement (secondes)", 5, 60, 10)
-show_last_hours = st.sidebar.slider("Afficher dernières heures", 1, 24, 6)
+refresh_rate = st.sidebar.slider("Refresh (seconds)", 5, 60, 10)
+show_last_hours = st.sidebar.slider("Show last hours", 1, 24, 6)
 
 # Auto-refresh
 st_autorefresh = st.sidebar.checkbox("Auto-refresh", value=False)
@@ -25,24 +25,24 @@ if st_autorefresh:
     time.sleep(refresh_rate)
     st.rerun()
 
-# Fonction pour lire depuis HDFS via l'API NameNode - VERSION CORRIGÉE
+# Function to read from HDFS via NameNode API
 @st.cache_data(ttl=60)
 def read_hdfs_data():
-    """Lire les données depuis HDFS via l'API NameNode - Version corrigée"""
+    """Read data from HDFS via NameNode API"""
     try:
-        # CORRECTION: Utiliser les noms de fichiers réels
+        # FIX: Use actual file names
         reviews_url = "http://namenode:9870/webhdfs/v1/data/text/existing/amazon_reviews.csv?op=OPEN"
         response = requests.get(reviews_url, allow_redirects=True, timeout=10)
         
         if response.status_code == 200:
-            # Parser le CSV Amazon Reviews (format réel)
+            # Parse the Amazon Reviews CSV (actual format)
             lines = response.text.strip().split('\n')
-            if len(lines) > 1:  # Au moins header + 1 ligne
+            if len(lines) > 1:  # At least header + 1 line
                 header = lines[0].split(',')
                 data = []
-                for line in lines[1:100]:  # Limiter à 100 lignes pour performance
+                for line in lines[1:100]:  # Limit to 100 lines for performance
                     if line.strip():
-                        # Parser CSV avec gestion des guillemets
+                        # Parse CSV with quote handling
                         parts = []
                         in_quotes = False
                         current_part = ""
@@ -68,14 +68,14 @@ def read_hdfs_data():
         
         return None
     except Exception as e:
-        st.error(f"Erreur lecture HDFS reviews: {e}")
+        st.error(f"Error reading HDFS reviews: {e}")
         return None
 
 @st.cache_data(ttl=60)
 def read_hdfs_images():
-    """Lire les métadonnées images depuis HDFS - Version corrigée"""
+    """Read image metadata from HDFS - Fixed version"""
     try:
-        # CORRECTION: Chercher le bon fichier d'images
+        # FIX: Find the correct image file
         images_url = "http://namenode:9870/webhdfs/v1/data/images/existing/intel_images_metadata.csv?op=OPEN"
         response = requests.get(images_url, allow_redirects=True, timeout=10)
         
@@ -84,11 +84,11 @@ def read_hdfs_images():
             if len(lines) > 1:
                 header = lines[0].split(',')
                 data = []
-                for line in lines[1:50]:  # Limiter pour performance
+                for line in lines[1:50]:  # Limit for performance
                     if line.strip():
                         parts = line.split(',')
                         if len(parts) >= len(header):
-                            # Nettoyer les guillemets
+                            # Clean quotes
                             clean_parts = [part.strip('"') for part in parts[:len(header)]]
                             data.append(clean_parts)
                 
@@ -98,20 +98,20 @@ def read_hdfs_images():
         
         return None
     except Exception as e:
-        st.error(f"Erreur lecture images HDFS: {e}")
+        st.error(f"Error reading HDFS images: {e}")
         return None
 
-@st.cache_data(ttl=30)  # Cache plus court pour data temps réel
+@st.cache_data(ttl=30)  # Shorter cache for real-time data
 def read_kafka_scraping_data():
-    """Lire les données de scraping depuis Kafka"""
+    """Read scraping data from Kafka"""
     try:
-        # Consumer Kafka pour lire les dernières données
+        # Kafka consumer to read latest data
         consumer = KafkaConsumer(
             'text-topic',
             'images-topic', 
             bootstrap_servers=['kafka:9092'],
             auto_offset_reset='latest',
-            consumer_timeout_ms=5000,  # 5 secondes timeout
+            consumer_timeout_ms=5000,  # 5 seconds timeout
             value_deserializer=lambda m: json.loads(m.decode('utf-8'))
         )
         
@@ -120,11 +120,11 @@ def read_kafka_scraping_data():
             'image_metadata': [],
             'last_update': None
         }
-        
-        # Lire les messages récents
+
+        # Read recent messages
         message_count = 0
         for message in consumer:
-            if message_count >= 50:  # Limiter à 50 messages récents
+            if message_count >= 50:  # Limit to 50 recent messages
                 break
                 
             data = message.value
@@ -141,12 +141,12 @@ def read_kafka_scraping_data():
         return scraped_data
         
     except Exception as e:
-        st.warning(f"Kafka non accessible: {e}")
+        st.warning(f"Kafka not accessible: {e}")
         return None
 
 @st.cache_data(ttl=60)
 def get_scraping_statistics():
-    """Statistiques de scraping depuis Kafka"""
+    """Scraping statistics from Kafka"""
     try:
         consumer = KafkaConsumer(
             'text-topic',
@@ -175,8 +175,8 @@ def get_scraping_statistics():
                 stats['total_articles'] += 1
                 stats['sources'][data.get('source', 'unknown')] += 1
                 stats['categories'][data.get('category', 'general')] += 1
-                
-                # Compter dernière heure
+
+                # Count last hour
                 try:
                     scraped_time = datetime.fromisoformat(data.get('scraped_at', '').replace('Z', ''))
                     if scraped_time >= one_hour_ago:
@@ -200,12 +200,12 @@ def get_scraping_statistics():
             'error': str(e)
         }
 
-# Fonction de fallback avec données de test
+# Fallback function with test data
 def create_test_data():
-    """Créer des données de test si HDFS inaccessible"""
-    st.info("🔄 Utilisation de données de test (HDFS inaccessible)")
-    
-    # Données reviews de test
+    """Create test data if HDFS inaccessible"""
+    st.info("🔄 Using test data (HDFS inaccessible)")
+
+    # Test reviews data
     test_reviews = pd.DataFrame({
         'Id': range(1, 21),
         'ProductId': [f'B00{i}E4KFG0' for i in range(1, 21)],
@@ -213,8 +213,8 @@ def create_test_data():
         'Summary': [f'Review {i}' for i in range(1, 21)],
         'Text': [f'Sample review text {i}' for i in range(1, 21)]
     })
-    
-    # Données images de test
+
+    # Test images data
     test_images = pd.DataFrame({
         'image_id': range(1, 16),
         'filename': [f'image_{i}.jpg' for i in range(1, 16)],
@@ -223,27 +223,26 @@ def create_test_data():
     
     return test_reviews, test_images
 
-# Charger les données réelles ou de test
+# Load real or test data
 reviews_df = read_hdfs_data()
 images_df = read_hdfs_images()
 
-# Si échec, utiliser données de test
+# If failed, use test data
 if reviews_df is None or images_df is None:
     if reviews_df is None and images_df is None:
         reviews_df, images_df = create_test_data()
     elif reviews_df is None:
         reviews_df, _ = create_test_data()
-        reviews_df, _ = create_test_data()
     elif images_df is None:
         _, images_df = create_test_data()
 
-# Métriques principales
+# Main metrics
 col1, col2, col3, col4 = st.columns(4)
 
 if reviews_df is not None and len(reviews_df) > 0:
     total_reviews = len(reviews_df)
-    
-    # Calculer moyenne rating (Score pour Amazon)
+
+    # Calculate average rating (Score for Amazon)
     try:
         if 'Score' in reviews_df.columns:
             reviews_df['rating_numeric'] = pd.to_numeric(reviews_df['Score'], errors='coerce')
@@ -255,47 +254,47 @@ if reviews_df is not None and len(reviews_df) > 0:
             avg_rating = 0
     except:
         avg_rating = 0
-    
-    # Sources uniques
+
+    # Unique sources
     source_cols = [col for col in reviews_df.columns if 'source' in col.lower()]
     unique_sources = reviews_df[source_cols[0]].nunique() if source_cols else 1
     
     col1.metric("📰 Total Reviews", total_reviews)
-    col2.metric("⭐ Rating Moyen", f"{avg_rating:.1f}")
+    col2.metric("⭐ Average Rating", f"{avg_rating:.1f}")
     col3.metric("🌐 Sources", unique_sources)
-    col4.metric("🕐 Dernière MAJ", datetime.now().strftime("%H:%M:%S"))
-    
-    # Graphiques avec vraies données
-    st.subheader("📈 Analyse des données HDFS (Vraies données)")
-    
+    col4.metric("🕐 Last Updated", datetime.now().strftime("%H:%M:%S"))
+
+    # Charts with real data
+    st.subheader("📈 Analyze HDFS Data (Real Data)")
+
     col1, col2 = st.columns(2)
     
     with col1:
-        # Distribution par rating
+        # Distribution by rating
         if 'rating_numeric' in reviews_df.columns:
             rating_counts = reviews_df['rating_numeric'].value_counts().sort_index()
             fig1 = px.bar(
                 x=rating_counts.index, 
                 y=rating_counts.values,
-                title="Distribution des Ratings Amazon",
-                labels={'x': 'Rating', 'y': 'Nombre de reviews'}
+                title="Distribution of Amazon Ratings",
+                labels={'x': 'Rating', 'y': 'Number of Reviews'}
             )
             st.plotly_chart(fig1, use_container_width=True)
     
     with col2:
-        # Top produits ou autre analyse
+        # Top products or other analysis
         if 'ProductId' in reviews_df.columns:
             top_products = reviews_df['ProductId'].value_counts().head(5)
             fig2 = px.pie(
                 values=top_products.values,
                 names=top_products.index,
-                title="Top 5 Produits"
+                title="Top 5 Products"
             )
             st.plotly_chart(fig2, use_container_width=True)
-    
-    # Tableau des données réelles
-    st.subheader("📋 Données Reviews depuis HDFS (Échantillon)")
-    # Afficher seulement les colonnes importantes
+
+    # Table of real data
+    st.subheader("📋 Reviews Data from HDFS (Sample)")
+    # Show only important columns
     display_cols = ['Id', 'Score', 'Summary', 'Text']
     available_cols = [col for col in display_cols if col in reviews_df.columns]
     if available_cols:
@@ -304,53 +303,53 @@ if reviews_df is not None and len(reviews_df) > 0:
         st.dataframe(reviews_df.head(10), use_container_width=True)
     
 else:
-    col1.metric("📰 Total Reviews", "Erreur HDFS")
-    col2.metric("⭐ Rating Moyen", "N/A")
+    col1.metric("📰 Total Reviews", "Error HDFS")
+    col2.metric("⭐ Average Rating", "N/A")
     col3.metric("🌐 Sources", "N/A")
-    col4.metric("🕐 Statut", "❌ Pas de données")
-    
-    st.error("🚫 Impossible de charger les données depuis HDFS")
-    st.info("💡 Vérifications suggérées:")
+    col4.metric("🕐 Status", "❌ No Data")
+
+    st.error("🚫 Unable to load data from HDFS")
+    st.info("💡 Suggested Checks:")
     st.code("""
-# 1. Vérifier que HDFS contient les données
+# 1. Check that HDFS contains the data
 docker exec namenode hdfs dfs -ls /data/text/existing/
 
-# 2. Vérifier le contenu
+# 2. Check the content
 docker exec namenode hdfs dfs -cat /data/text/existing/amazon_reviews.csv | head -3
 
-# 3. Vérifier l'API NameNode
+# 3. Check the NameNode API
 curl http://localhost:9870/webhdfs/v1/data/text/existing/?op=LISTSTATUS
     """)
 
 # Section Images
 if images_df is not None and len(images_df) > 0:
-    st.subheader("🖼️ Métadonnées Images depuis HDFS")
-    
+    st.subheader("🖼️ Image Metadata from HDFS")
+
     if 'category' in images_df.columns:
         category_counts = images_df['category'].value_counts()
         fig3 = px.bar(
             x=category_counts.values,
             y=category_counts.index,
             orientation='h',
-            title="Images par Catégorie"
+            title="Images by Category"
         )
         st.plotly_chart(fig3, use_container_width=True)
     
     st.dataframe(images_df.head(5), use_container_width=True)
 
-# ============ NOUVELLE SECTION SCRAPING WEB ============
-st.subheader("🌐 Scraping Web en Temps Réel")
+# ============ NEW SECTION WEB SCRAPING ============
+st.subheader("🌐 Real-Time Web Scraping")
 
-# Onglets pour séparer les vues
-tab1, tab2, tab3 = st.tabs(["📊 Statistiques", "📝 Articles Récents", "🖼️ Images Récentes"])
+# Tabs to separate views
+tab1, tab2, tab3 = st.tabs(["📊 Statistics", "📝 Recent Articles", "🖼️ Recent Images"])
 
 with tab1:
-    st.markdown("### 📈 Statistiques de Scraping")
-    
-    # Lire les stats
+    st.markdown("### 📈 Scraping Statistics")
+
+    # Read stats
     scraping_stats = get_scraping_statistics()
-    
-    # Métriques principales
+
+    # Main metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -358,77 +357,77 @@ with tab1:
     with col2:
         st.metric("🖼️ Total Images", scraping_stats.get('total_images', 0))
     with col3:
-        st.metric("🕐 Dernière Heure", scraping_stats.get('last_hour_count', 0))
+        st.metric("🕐 Last Hour", scraping_stats.get('last_hour_count', 0))
     with col4:
         sources_count = len(scraping_stats.get('sources', {}))
-        st.metric("🌐 Sources Actives", sources_count)
-    
-    # Graphiques de répartition
+        st.metric("🌐 Active Sources", sources_count)
+
+    # Distribution charts
     if scraping_stats.get('sources'):
         col1, col2 = st.columns(2)
         
         with col1:
-            # Graphique sources
+            # Sources chart
             sources_data = scraping_stats['sources']
             fig1 = px.pie(
                 values=list(sources_data.values()),
                 names=list(sources_data.keys()),
-                title="Répartition par Source"
+                title="Distribution by Source"
             )
             st.plotly_chart(fig1, use_container_width=True)
         
         with col2:
-            # Graphique catégories
+            # Categories chart
             categories_data = scraping_stats['categories']
             if categories_data:
                 fig2 = px.bar(
                     x=list(categories_data.keys()),
                     y=list(categories_data.values()),
-                    title="Articles par Catégorie"
+                    title="Articles by Category"
                 )
                 st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.info("📊 Pas de données de scraping trouvées dans Kafka")
+        st.info("📊 No scraping data found in Kafka")
 
 with tab2:
-    st.markdown("### 📝 Articles Scrapés Récemment")
-    
-    # Lire les données récentes
+    st.markdown("### 📝 Recent Scraped Articles")
+
+    # Read recent data
     scraped_data = read_kafka_scraping_data()
     
     if scraped_data and scraped_data['text_articles']:
-        articles = scraped_data['text_articles'][-10:]  # 10 derniers
-        
+        articles = scraped_data['text_articles'][-10:]  # Last 10
+
         for i, article in enumerate(reversed(articles)):
-            with st.expander(f"📰 {article.get('title', 'Sans titre')[:60]}..."):
+            with st.expander(f"📰 {article.get('title', 'Untitled')[:60]}..."):
                 col1, col2 = st.columns([3, 1])
                 
                 with col1:
                     st.write(f"**Source:** {article.get('source', 'Unknown')}")
-                    st.write(f"**Catégorie:** {article.get('category', 'general')}")
-                    st.write(f"**Contenu:** {article.get('content', 'Pas de contenu')[:200]}...")
+                    st.write(f"**Category:** {article.get('category', 'general')}")
+                    st.write(f"**Content:** {article.get('content', 'No content')[:200]}...")
                     if article.get('url'):
                         st.write(f"**URL:** {article['url']}")
                 
                 with col2:
                     st.write(f"🕐 {article.get('scraped_at', 'Unknown')[:19]}")
-                    st.write(f"📊 {article.get('word_count', 0)} mots")
+                    st.write(f"📊 {article.get('word_count', 0)} words")
                     if 'upvotes' in article:
                         st.write(f"👍 {article['upvotes']} upvotes")
         
         if scraped_data.get('last_update'):
-            st.success(f"✅ Dernière mise à jour: {scraped_data['last_update'][:19]}")
+            st.success(f"✅ Last updated: {scraped_data['last_update'][:19]}")
     else:
-        st.warning("⚠️ Aucun article récent trouvé dans Kafka")
-        st.info("💡 Le scraper est peut-être en cours de démarrage")
+        st.warning("⚠️ No recent articles found in Kafka")
+        st.info("💡 The scraper may be starting up")
 
 with tab3:
-    st.markdown("### 🖼️ Métadonnées Images Récentes")
-    
+    st.markdown("### 🖼️ Recent Image Metadata")
+
     if scraped_data and scraped_data['image_metadata']:
-        images = scraped_data['image_metadata'][-8:]  # 8 dernières
-        
-        # Affichage en grille
+        images = scraped_data['image_metadata'][-8:]  # Last 8
+
+        # Display in grid
         cols = st.columns(2)
         
         for i, img_data in enumerate(reversed(images)):
@@ -436,78 +435,78 @@ with tab3:
             
             with col:
                 with st.container():
-                    st.markdown(f"**🖼️ {img_data.get('title', 'Sans titre')[:40]}**")
+                    st.markdown(f"**🖼️ {img_data.get('title', 'Untitled')[:40]}**")
                     st.write(f"**Source:** {img_data.get('source', 'Unknown')}")
-                    st.write(f"**Catégorie:** {img_data.get('category', 'general')}")
+                    st.write(f"**Category:** {img_data.get('category', 'general')}")
                     
                     if img_data.get('thumbnail_url') and img_data['thumbnail_url'] != 'self':
                         try:
                             st.image(img_data['thumbnail_url'], width=200)
                         except:
-                            st.write("🖼️ Miniature non disponible")
-                    
+                            st.write("🖼️ Thumbnail not available")
+
                     if 'upvotes' in img_data:
                         st.write(f"👍 {img_data['upvotes']} | 💬 {img_data.get('comments', 0)}")
                     
                     st.write(f"🕐 {img_data.get('scraped_at', 'Unknown')[:19]}")
                     st.markdown("---")
     else:
-        st.warning("⚠️ Aucune métadonnée d'image récente")
+        st.warning("⚠️ No recent image metadata found")
 
-# Indicateur de statut du scraper
-st.markdown("### 🤖 Statut du Scraper")
+# Scraper status indicator
+st.markdown("### 🤖 Scraper Status")
 
 try:
-    # Test de connectivité Kafka
+    # Kafka Connectivity Test
     test_consumer = KafkaConsumer(
         bootstrap_servers=['kafka:9092'],
         consumer_timeout_ms=2000
     )
     test_consumer.close()
-    
-    st.success("✅ Scraper connecté à Kafka")
-    
-    # Afficher quelques métriques temps réel
+
+    st.success("✅ Scraper connected to Kafka")
+
+    # Show some real-time metrics
     if scraped_data and scraped_data.get('last_update'):
         try:
             last_update = datetime.fromisoformat(scraped_data['last_update'].replace('Z', ''))
             time_diff = datetime.now() - last_update
-            
-            if time_diff.total_seconds() < 600:  # Moins de 10 min
-                st.success(f"🟢 Scraper actif (dernière activité: {int(time_diff.total_seconds())}s)")
-            else:
-                st.warning(f"🟡 Scraper ralenti (dernière activité: {int(time_diff.total_seconds()/60)}min)")
-        except:
-            st.info("🔄 Scraper en cours de démarrage...")
-    else:
-        st.info("🔄 Scraper en cours de démarrage...")
-        
-except Exception as e:
-    st.error("❌ Scraper déconnecté de Kafka")
-    st.error(f"Détails: {str(e)}")
 
-# Instructions pour voir les logs
+            if time_diff.total_seconds() < 600:  # Less than 10 min
+                st.success(f"🟢 Scraper active (last activity: {int(time_diff.total_seconds())}s)")
+            else:
+                st.warning(f"🟡 Scraper slowed down (last activity: {int(time_diff.total_seconds()/60)}min)")
+        except:
+            st.info("🔄 Scraper starting up...")
+    else:
+        st.info("🔄 Scraper starting up...")
+
+except Exception as e:
+    st.error("❌ Scraper disconnected from Kafka")
+    st.error(f"DDetails: {str(e)}")
+
+# Instructions for viewing logs
 with st.expander("🔧 Debug Scraper"):
     st.code("""
-# Voir les logs du scraper
+# View scraper logs
 docker logs scraper -f
 
-# Redémarrer le scraper
+# Restart the scraper
 docker-compose restart scraper
 
-# Voir les topics Kafka
+# View Kafka topics
 docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list
 
-# Lire directement depuis Kafka
+# Read directly from Kafka
 docker exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic text-topic --from-beginning
     """, language="bash")
 
-# État du cluster
-st.subheader("🖥️ État du Cluster Hadoop")
+# Cluster status
+st.subheader("🖥️ Hadoop Cluster Status")
 
 cluster_col1, cluster_col2, cluster_col3 = st.columns(3)
 
-# Test de connectivité réelle
+# Real Connectivity Test
 @st.cache_data(ttl=30)
 def check_services():
     services_status = {}
@@ -530,19 +529,19 @@ def check_services():
 services_status = check_services()
 
 with cluster_col1:
-    status = "✅ Opérationnel" if services_status.get("NameNode", False) else "❌ Hors ligne"
+    status = "✅ Operational" if services_status.get("NameNode", False) else "❌ Offline"
     st.metric("NameNode", status)
     
 with cluster_col2:
-    status = "✅ Connecté" if services_status.get("DataNode1", False) else "❌ Hors ligne"
+    status = "✅ Connected" if services_status.get("DataNode1", False) else "❌ Offline"
     st.metric("DataNode 1", status)
     
 with cluster_col3:
-    status = "✅ Connecté" if services_status.get("DataNode2", False) else "❌ Hors ligne"
+    status = "✅ Connected" if services_status.get("DataNode2", False) else "❌ Offline"
     st.metric("DataNode 2", status)
 
-# Informations système réelles
-st.subheader("📊 Informations HDFS")
+# Real-time HDFS Information
+st.subheader("📊 HDFS Information")
 
 info_col1, info_col2 = st.columns(2)
 
@@ -550,26 +549,26 @@ with info_col1:
     if reviews_df is not None:
         st.metric("💾 Reviews HDFS", len(reviews_df))
     else:
-        st.metric("💾 Reviews HDFS", "Erreur")
-    
+        st.metric("💾 Reviews HDFS", "Error")
+
     all_services = sum(services_status.values())
-    st.metric("🔄 Services Actifs", f"{all_services}/3")
-    
+    st.metric("🔄 Active Services", f"{all_services}/3")
+
 with info_col2:
     if images_df is not None:
         st.metric("🖼️ Images HDFS", len(images_df))
     else:
-        st.metric("🖼️ Images HDFS", "Erreur")
-    
-    # Statut général
-    if all_services >= 2:
-        st.metric("📈 Statut Cluster", "✅ Opérationnel")
-    else:
-        st.metric("📈 Statut Cluster", "⚠️ Dégradé")
+        st.metric("🖼️ Images HDFS", "Error")
 
-# Footer avec liens
+    # General status
+    if all_services >= 2:
+        st.metric("📈 Cluster Status", "✅ Operational")
+    else:
+        st.metric("📈 Cluster Status", "⚠️ DDegraded")
+
+# Footer with links
 st.markdown("---")
-st.markdown("### 🔗 Liens Utiles")
+st.markdown("### 🔗 Useful Links")
 
 link_col1, link_col2, link_col3 = st.columns(3)
 
@@ -583,17 +582,17 @@ with link_col3:
     st.markdown("[📈 Dashboard](http://localhost:8501)")
 
 # Debug info
-with st.expander("🔧 Informations de Debug"):
-    st.write("**État des données:**")
+with st.expander("🔧 Debug Information"):
+    st.write("**Data Status:**")
     st.write(f"- Reviews DF: {reviews_df is not None and len(reviews_df) > 0}")
     st.write(f"- Images DF: {images_df is not None and len(images_df) > 0}")
     st.write(f"- Services: {services_status}")
     
     if reviews_df is not None:
-        st.write("**Colonnes Reviews:**", list(reviews_df.columns))
+        st.write("**Reviews Columns:**", list(reviews_df.columns))
     if images_df is not None:
-        st.write("**Colonnes Images:**", list(images_df.columns))
+        st.write("**Images Columns:**", list(images_df.columns))
 
 # Footer
 st.markdown("---")
-st.caption(f"Dashboard Hadoop | Données réelles HDFS + Scraping temps réel | Dernière mise à jour: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.caption(f"Dashboard Hadoop | HDFS Real Data + Real-Time Scraping | Latest Update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

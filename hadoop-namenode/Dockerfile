@@ -24,5 +24,5 @@ COPY hdfs-site.xml $HADOOP_HOME/etc/hadoop/hdfs-site.xml
 
 EXPOSE 9870 9000
 
-# Commande simple qui fonctionne toujours
+# Simple command that always works
 CMD ["sh", "-c", "hdfs namenode -format -force && hdfs namenode"]

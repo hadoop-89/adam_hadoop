@@ -1,23 +1,23 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Démarrage du DataNode..."
+echo "🚀 Starting DataNode..."
 
-# Attendre que le NameNode soit disponible
-echo "⏳ Attente du NameNode..."
+# Wait for NameNode to be available
+echo "⏳ Waiting for NameNode..."
 while ! nc -z namenode 9000; do
-    echo "⏳ NameNode non accessible, nouvelle tentative dans 5s..."
+    echo "⏳ NameNode not accessible, retrying in 5s..."
     sleep 5
 done
 
-echo "✅ NameNode accessible !"
+echo "✅ NameNode accessible!"
 
-# Attendre un peu plus pour que le NameNode soit complètement initialisé
+# Wait a bit longer for NameNode to be fully initialized
 sleep 10
 
-# Vérifier que le répertoire de données existe
+# Check that the data directory exists
 mkdir -p /hadoop/dfs/data
 
-# Démarrer le DataNode
-echo "🔄 Démarrage du DataNode..."
+# Start the DataNode
+echo "🔄 Starting DataNode..."
 exec hdfs datanode

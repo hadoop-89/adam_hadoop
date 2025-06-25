@@ -1,19 +1,19 @@
 #!/bin/bash
 
-set -e  # Arrêter le script en cas d'erreur
+set -e  # Stop the script on error
 
-# Définition des variables
+# Define variables
 PROJECT_DIR=$(pwd)
 YOLO_API_DIR="$PROJECT_DIR/yolo-api"
 MODEL_URL="https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt"
 
-# Création du répertoire yolo-api si non existant
+# Create yolo-api directory if it doesn't exist
 if [ ! -d "$YOLO_API_DIR" ]; then
-    echo "📂 Création du dossier yolo-api..."
+    echo "📂 Creating yolo-api directory..."
     mkdir -p "$YOLO_API_DIR"
 fi
 
-# Création du fichier requirements.txt
+# Create requirements.txt file
 cat <<EOF > "$YOLO_API_DIR/requirements.txt"
 flask
 flask-cors
@@ -23,24 +23,24 @@ numpy
 torch
 EOF
 
-echo "📜 Fichier requirements.txt créé."
+echo "📜 requirements.txt file created."
 
-# Téléchargement du modèle YOLOv8 si non présent
+# Download YOLOv8 model if not present
 if [ ! -f "$YOLO_API_DIR/yolov8n.pt" ]; then
-    echo "📥 Téléchargement du modèle YOLOv8..."
+    echo "📥 Downloading YOLOv8 model..."
     wget -q "$MODEL_URL" -P "$YOLO_API_DIR/"
-    echo "✅ Modèle téléchargé."
+    echo "✅ Model downloaded."
 else
-    echo "✅ Modèle YOLOv8 déjà présent."
+    echo "✅ YOLOv8 model already present."
 fi
 
-# Vérification et lancement des conteneurs
+# Check and start containers
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker n'est pas démarré. Veuillez le lancer avant d'exécuter ce script."
+    echo "❌ Docker is not running. Please start it before running this script."
     exit 1
 fi
 
-echo "🚀 Démarrage des services Docker..."
+echo "🚀 Starting Docker services..."
 docker-compose up -d
 
-echo "✅ Installation terminée. YOLO API est accessible sur http://localhost:8000/health"
+echo "✅ Installation and configuration completed! YOLO API is accessible at http://localhost:8000/health"
