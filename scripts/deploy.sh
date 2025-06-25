@@ -360,7 +360,7 @@ show_service_health() {
     fi
 }
 
-<<<<<<< Updated upstream
+
 wait_for_service() {
     local name=$1
     local url=$2
@@ -488,8 +488,8 @@ deploy_cluster() {
     return 0
 }
 
-=======
->>>>>>> Stashed changes
+
+
 show_access_info() {
     echo -e "\n${BLUE}📊 Access Information:${NC}"
     echo -e "${GREEN}• NameNode Web UI: http://localhost:9870${NC}"
