@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-06-25T22:46:37.667762",
+  "verdict": "FAILED",
+  "success_rate": 62.5,
+  "test_results": {
+    "services_health": true,
+    "hdfs_connectivity": true,
+    "data_access": false,
+    "ai_text_analysis": true,
+    "ai_image_analysis": true,
+    "batch_processing": true,
+    "results_storage": false,
+    "yolo_retraining": false,
+    "performance_metrics": {
+      "text_analysis_time": 1.2140376567840576,
+      "image_analysis_time": 1.7541537284851074,
+      "batch_processing_time": 3.5060887336730957,
+      "health_check_time": 0.042206525802612305,
+      "models_status_time": 0.0056340694427490234,
+      "yolo_health_time": 0.025317668914794922
+    }
+  },
+  "passed_tests": 5,
+  "total_tests": 8
+}
